@@ -23,8 +23,8 @@ on:
       - performance-degradation-alert
 
 env:
-  IMAGE_NAME_TRAIN: hamzazahid1080/mlops_assignment4/fraud-train
-  IMAGE_NAME_API: hamzazahid1080/mlops_assignment4/fraud-api
+  IMAGE_NAME_TRAIN: hamzazahid1080/fraud-train
+  IMAGE_NAME_API: hamzazahid1080/fraud-api
   KUBEFLOW_NAMESPACE: fraud-detection
 
 jobs:
