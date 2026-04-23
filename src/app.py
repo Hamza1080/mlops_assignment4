@@ -25,10 +25,10 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, Collec
 # Configuration
 # ============================================================================
 
-MODEL_PATH = os.getenv("MODEL_PATH", "models/xgboost.pkl")
-SCALER_PATH = os.getenv("SCALER_PATH", "models/scaler.pkl")
-METADATA_PATH = os.getenv("METADATA_PATH", "models/preprocessing_meta.json")
-THRESHOLD_PATH = os.getenv("THRESHOLD_PATH", "models/best_threshold.json")
+MODEL_PATH = os.getenv("MODEL_PATH", "model/xgboost.pkl")
+SCALER_PATH = os.getenv("SCALER_PATH", "model/scaler.pkl")
+METADATA_PATH = os.getenv("METADATA_PATH", "model/preprocessing_meta.json")
+THRESHOLD_PATH = os.getenv("THRESHOLD_PATH", "model/best_threshold.json")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 NAMESPACE = os.getenv("PROMETHEUS_NAMESPACE", "fraud")
 
