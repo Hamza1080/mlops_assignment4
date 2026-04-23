@@ -1,0 +1,281 @@
+---
+source: Community and custom
+mcp_servers:
+  - name: prometheus-mcp
+    provider: pab1it0
+    license: apache-2.0
+    license_link: https://www.apache.org/licenses/LICENSE-2.0
+    description: >-
+      Query Prometheus metrics and alerts directly from your agent.
+      Provides PromQL query execution, alert retrieval, and metric discovery.
+    readme: |-
+      # Prometheus MCP Server
+
+      **MCP Server Summary:**
+      Access Prometheus metrics and alerting data through the MCP protocol.
+
+      ## Features
+      - Execute PromQL queries
+      - Query range data
+      - Retrieve active alerts
+
+      ## Prerequisites
+      - Prometheus server access
+      - Network connectivity to Prometheus API
+    version: "1.5.1"
+    transports:
+      - http
+    logo: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzOCIgaGVpZ2h0PSIzOCIgdmlld0JveD0iMCAwIDM4IDM4Ij4KICA8dGl0bGU+TUNQIFNlcnZlciBpY29uPC90aXRsZT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmJne2ZpbGw6I2ZmZjt9CiAgICAgIC5ib3JkZXJ7ZmlsbDojZTBlMGUwO30KICAgICAgLmFjY2VudHtmaWxsOiMwMDY2Y2M7fQogICAgICAubm9kZXtmaWxsOiMwMDY2Y2M7fQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHJlY3QgY2xhc3M9ImJvcmRlciIgeD0iMCIgeT0iMCIgd2lkdGg9IjM4IiBoZWlnaHQ9IjM4IiByeD0iNCIgcnk9IjQiLz4KICA8cmVjdCBjbGFzcz0iYmciIHg9IjEiIHk9IjEiIHdpZHRoPSIzNiIgaGVpZ2h0PSIzNiIgcng9IjMiIHJ5PSIzIi8+CiAgPGNpcmNsZSBjbGFzcz0ibm9kZSIgY3g9IjE5IiBjeT0iMTkiIHI9IjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iMTkiIGN5PSI3IiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iMjkiIGN5PSIxMyIgcj0iMi41Ii8+CiAgPGNpcmNsZSBjbGFzcz0ibm9kZSIgY3g9IjI5IiBjeT0iMjUiIHI9IjIuNSIvPgogIDxjaXJjbGUgY2xhc3M9Im5vZGUiIGN4PSIxOSIgY3k9IjMxIiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iOSIgY3k9IjI1IiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iOSIgY3k9IjEzIiByPSIyLjUiLz4KICA8bGluZSB4MT0iMTkiIHkxPSIxNCIgeDI9IjE5IiB5Mj0iOSIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIyMyIgeTE9IjE2IiB4Mj0iMjciIHkyPSIxNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIyMyIgeTE9IjIyIiB4Mj0iMjciIHkyPSIyNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxOSIgeTE9IjI0IiB4Mj0iMTkiIHkyPSIyOSIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxNSIgeTE9IjIyIiB4Mj0iMTEiIHkyPSIyNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxNSIgeTE9IjE2IiB4Mj0iMTEiIHkyPSIxNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4K
+    repositoryUrl: https://github.com/pab1it0/prometheus-mcp-server
+    sourceCode: pab1it0/prometheus-mcp-server
+    publishedDate: "2025-01-10T00:00:00Z"
+    tools:
+      - name: query
+        description: Execute PromQL queries
+        accessType: read_only
+        parameters:
+          - name: query
+            type: string
+            description: PromQL query expression
+            required: true
+      - name: query_range
+        description: Execute PromQL range queries
+        accessType: read_only
+        parameters:
+          - name: query
+            type: string
+            description: PromQL query expression
+            required: true
+          - name: start
+            type: string
+            description: Start timestamp
+            required: true
+          - name: end
+            type: string
+            description: End timestamp
+            required: true
+      - name: get_alerts
+        description: Retrieve active alerts
+        accessType: read_only
+        parameters: []
+    artifacts:
+      - uri: oci://ghcr.io/pab1it0/prometheus-mcp-server:v1.5.1
+        createTimeSinceEpoch: "1736510400000"
+        lastUpdateTimeSinceEpoch: "1736510400000"
+    securityIndicators:
+      verifiedSource: true
+      secureEndpoint: true
+      sast: false
+      readOnlyTools: true
+    customProperties:
+      metrics:
+        metadataType: MetadataStringValue
+        string_value: ""
+      monitoring:
+        metadataType: MetadataStringValue
+        string_value: ""
+      alerting:
+        metadataType: MetadataStringValue
+        string_value: ""
+    createTimeSinceEpoch: "1736510400000"
+    lastUpdateTimeSinceEpoch: "1736510400000"
+
+  - name: kubernetes-mcp
+    provider: containers
+    license: apache-2.0
+    license_link: https://www.apache.org/licenses/LICENSE-2.0
+    description: >-
+      Interact with Kubernetes clusters through natural language.
+      List pods, check deployments, view logs, and manage resources.
+    readme: |-
+      # Kubernetes MCP Server
+
+      **MCP Server Summary:**
+      Comprehensive Kubernetes cluster management through MCP.
+
+      ## Features
+      - Pod management and listing
+      - Deployment operations
+      - Log retrieval
+      - Scaling operations
+
+      ## Prerequisites
+      - kubectl configured with cluster access
+      - Appropriate RBAC permissions
+    version: "0.0.59"
+    transports:
+      - stdio
+    logo: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzOCIgaGVpZ2h0PSIzOCIgdmlld0JveD0iMCAwIDM4IDM4Ij4KICA8dGl0bGU+TUNQIFNlcnZlciBpY29uPC90aXRsZT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmJne2ZpbGw6I2ZmZjt9CiAgICAgIC5ib3JkZXJ7ZmlsbDojZTBlMGUwO30KICAgICAgLmFjY2VudHtmaWxsOiMwMDY2Y2M7fQogICAgICAubm9kZXtmaWxsOiMwMDY2Y2M7fQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHJlY3QgY2xhc3M9ImJvcmRlciIgeD0iMCIgeT0iMCIgd2lkdGg9IjM4IiBoZWlnaHQ9IjM4IiByeD0iNCIgcnk9IjQiLz4KICA8cmVjdCBjbGFzcz0iYmciIHg9IjEiIHk9IjEiIHdpZHRoPSIzNiIgaGVpZ2h0PSIzNiIgcng9IjMiIHJ5PSIzIi8+CiAgPGNpcmNsZSBjbGFzcz0ibm9kZSIgY3g9IjE5IiBjeT0iMTkiIHI9IjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iMTkiIGN5PSI3IiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iMjkiIGN5PSIxMyIgcj0iMi41Ii8+CiAgPGNpcmNsZSBjbGFzcz0ibm9kZSIgY3g9IjI5IiBjeT0iMjUiIHI9IjIuNSIvPgogIDxjaXJjbGUgY2xhc3M9Im5vZGUiIGN4PSIxOSIgY3k9IjMxIiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iOSIgY3k9IjI1IiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iOSIgY3k9IjEzIiByPSIyLjUiLz4KICA8bGluZSB4MT0iMTkiIHkxPSIxNCIgeDI9IjE5IiB5Mj0iOSIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIyMyIgeTE9IjE2IiB4Mj0iMjciIHkyPSIxNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIyMyIgeTE9IjIyIiB4Mj0iMjciIHkyPSIyNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxOSIgeTE9IjI0IiB4Mj0iMTkiIHkyPSIyOSIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxNSIgeTE9IjIyIiB4Mj0iMTEiIHkyPSIyNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxNSIgeTE9IjE2IiB4Mj0iMTEiIHkyPSIxNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4K
+    repositoryUrl: https://github.com/containers/kubernetes-mcp-server
+    sourceCode: containers/kubernetes-mcp-server
+    publishedDate: "2025-01-12T00:00:00Z"
+    tools:
+      - name: get_pods
+        description: List pods in a namespace
+        accessType: read_only
+        parameters:
+          - name: namespace
+            type: string
+            description: Kubernetes namespace
+            required: true
+      - name: get_deployments
+        description: List deployments
+        accessType: read_only
+        parameters:
+          - name: namespace
+            type: string
+            description: Kubernetes namespace
+            required: true
+      - name: get_logs
+        description: Retrieve pod logs
+        accessType: read_only
+        parameters:
+          - name: namespace
+            type: string
+            description: Kubernetes namespace
+            required: true
+          - name: pod_name
+            type: string
+            description: Name of the pod
+            required: true
+      - name: scale_deployment
+        description: Scale a deployment
+        accessType: read_write
+        parameters:
+          - name: namespace
+            type: string
+            description: Kubernetes namespace
+            required: true
+          - name: deployment_name
+            type: string
+            description: Name of the deployment
+            required: true
+          - name: replicas
+            type: number
+            description: Desired number of replicas
+            required: true
+    artifacts:
+      - uri: oci://quay.io/containers/kubernetes_mcp_server:v0.0.59
+        createTimeSinceEpoch: "1736683200000"
+        lastUpdateTimeSinceEpoch: "1736683200000"
+    securityIndicators:
+      verifiedSource: true
+      secureEndpoint: true
+      sast: true
+      readOnlyTools: false
+    customProperties:
+      kubernetes:
+        metadataType: MetadataStringValue
+        string_value: ""
+      containers:
+        metadataType: MetadataStringValue
+        string_value: ""
+      orchestration:
+        metadataType: MetadataStringValue
+        string_value: ""
+    createTimeSinceEpoch: "1736683200000"
+    lastUpdateTimeSinceEpoch: "1736683200000"
+
+  - name: elasticsearch-mcp
+    provider: Elastic
+    license: elastic-2.0
+    license_link: https://www.elastic.co/licensing/elastic-license
+    description: >-
+      Query and analyze data in Elasticsearch clusters.
+      Execute searches, aggregations, and manage indices.
+    readme: |-
+      # Elasticsearch MCP Server
+
+      **MCP Server Summary:**
+      Elasticsearch data query and analysis.
+
+      ## Features
+      - Search queries
+      - Aggregations
+      - Index management
+
+      ## Prerequisites
+      - Elasticsearch cluster access
+      - API credentials (if authentication enabled)
+    version: "0.4.6"
+    transports:
+      - http
+      - stdio
+    logo: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzOCIgaGVpZ2h0PSIzOCIgdmlld0JveD0iMCAwIDM4IDM4Ij4KICA8dGl0bGU+TUNQIFNlcnZlciBpY29uPC90aXRsZT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmJne2ZpbGw6I2ZmZjt9CiAgICAgIC5ib3JkZXJ7ZmlsbDojZTBlMGUwO30KICAgICAgLmFjY2VudHtmaWxsOiMwMDY2Y2M7fQogICAgICAubm9kZXtmaWxsOiMwMDY2Y2M7fQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHJlY3QgY2xhc3M9ImJvcmRlciIgeD0iMCIgeT0iMCIgd2lkdGg9IjM4IiBoZWlnaHQ9IjM4IiByeD0iNCIgcnk9IjQiLz4KICA8cmVjdCBjbGFzcz0iYmciIHg9IjEiIHk9IjEiIHdpZHRoPSIzNiIgaGVpZ2h0PSIzNiIgcng9IjMiIHJ5PSIzIi8+CiAgPGNpcmNsZSBjbGFzcz0ibm9kZSIgY3g9IjE5IiBjeT0iMTkiIHI9IjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iMTkiIGN5PSI3IiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iMjkiIGN5PSIxMyIgcj0iMi41Ii8+CiAgPGNpcmNsZSBjbGFzcz0ibm9kZSIgY3g9IjI5IiBjeT0iMjUiIHI9IjIuNSIvPgogIDxjaXJjbGUgY2xhc3M9Im5vZGUiIGN4PSIxOSIgY3k9IjMxIiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iOSIgY3k9IjI1IiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iOSIgY3k9IjEzIiByPSIyLjUiLz4KICA8bGluZSB4MT0iMTkiIHkxPSIxNCIgeDI9IjE5IiB5Mj0iOSIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIyMyIgeTE9IjE2IiB4Mj0iMjciIHkyPSIxNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIyMyIgeTE9IjIyIiB4Mj0iMjciIHkyPSIyNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxOSIgeTE9IjI0IiB4Mj0iMTkiIHkyPSIyOSIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxNSIgeTE9IjIyIiB4Mj0iMTEiIHkyPSIyNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxNSIgeTE9IjE2IiB4Mj0iMTEiIHkyPSIxNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4K
+    repositoryUrl: https://github.com/elastic/mcp-server-elasticsearch
+    sourceCode: elastic/mcp-server-elasticsearch
+    publishedDate: "2024-12-20T00:00:00Z"
+    tools:
+      - name: search
+        description: Execute a search query
+        accessType: read_only
+        parameters:
+          - name: index
+            type: string
+            description: Index name or pattern
+            required: true
+      - name: get_indices
+        description: List available indices
+        accessType: read_only
+        parameters: []
+    artifacts:
+      - uri: oci://docker.elastic.co/mcp/elasticsearch
+        createTimeSinceEpoch: "1734696000000"
+        lastUpdateTimeSinceEpoch: "1734696000000"
+    securityIndicators:
+      verifiedSource: true
+      secureEndpoint: false
+      sast: false
+      readOnlyTools: true
+    customProperties:
+      search:
+        metadataType: MetadataStringValue
+        string_value: ""
+      analytics:
+        metadataType: MetadataStringValue
+        string_value: ""
+      logging:
+        metadataType: MetadataStringValue
+        string_value: ""
+    createTimeSinceEpoch: "1734696000000"
+    lastUpdateTimeSinceEpoch: "1734696000000"
+
+  - name: google-mcp
+    provider: Google
+    license: apache-2.0
+    license_link: https://www.apache.org/licenses/LICENSE-2.0
+    description: >-
+      Google's official collection of MCP servers and guidance for deploying
+      MCP servers to Google Cloud. Includes remote managed servers for Google
+      Workspace, BigQuery, Maps, Genmedia, and Google Cloud Security services.
+    readme: |-
+      # Google MCP
+
+      Official repository for Google's Model Context Protocol (MCP) servers.
+
+      ## Available Servers
+      - Google Workspace (Docs, Sheets, Slides, Calendar, Gmail)
+      - MCP Toolbox for Databases (BigQuery, Cloud SQL, AlloyDB,
+        Spanner, Firestore)
+      - Genmedia (Imagen and Veo models)
+      - Google Cloud Security (Security Command Center, Chronicle)
+      - Google Maps
+
+      ## Note
+      Remote MCP servers are managed by Google and available via endpoint.
+      Local servers can also be run or deployed to Google Cloud.
+    logo: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzOCIgaGVpZ2h0PSIzOCIgdmlld0JveD0iMCAwIDM4IDM4Ij4KICA8dGl0bGU+TUNQIFNlcnZlciBpY29uPC90aXRsZT4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmJne2ZpbGw6I2ZmZjt9CiAgICAgIC5ib3JkZXJ7ZmlsbDojZTBlMGUwO30KICAgICAgLmFjY2VudHtmaWxsOiMwMDY2Y2M7fQogICAgICAubm9kZXtmaWxsOiMwMDY2Y2M7fQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHJlY3QgY2xhc3M9ImJvcmRlciIgeD0iMCIgeT0iMCIgd2lkdGg9IjM4IiBoZWlnaHQ9IjM4IiByeD0iNCIgcnk9IjQiLz4KICA8cmVjdCBjbGFzcz0iYmciIHg9IjEiIHk9IjEiIHdpZHRoPSIzNiIgaGVpZ2h0PSIzNiIgcng9IjMiIHJ5PSIzIi8+CiAgPGNpcmNsZSBjbGFzcz0ibm9kZSIgY3g9IjE5IiBjeT0iMTkiIHI9IjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iMTkiIGN5PSI3IiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iMjkiIGN5PSIxMyIgcj0iMi41Ii8+CiAgPGNpcmNsZSBjbGFzcz0ibm9kZSIgY3g9IjI5IiBjeT0iMjUiIHI9IjIuNSIvPgogIDxjaXJjbGUgY2xhc3M9Im5vZGUiIGN4PSIxOSIgY3k9IjMxIiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iOSIgY3k9IjI1IiByPSIyLjUiLz4KICA8Y2lyY2xlIGNsYXNzPSJub2RlIiBjeD0iOSIgY3k9IjEzIiByPSIyLjUiLz4KICA8bGluZSB4MT0iMTkiIHkxPSIxNCIgeDI9IjE5IiB5Mj0iOSIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIyMyIgeTE9IjE2IiB4Mj0iMjciIHkyPSIxNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIyMyIgeTE9IjIyIiB4Mj0iMjciIHkyPSIyNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxOSIgeTE9IjI0IiB4Mj0iMTkiIHkyPSIyOSIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxNSIgeTE9IjIyIiB4Mj0iMTEiIHkyPSIyNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxsaW5lIHgxPSIxNSIgeTE9IjE2IiB4Mj0iMTEiIHkyPSIxNCIgc3Ryb2tlPSIjMDA2NmNjIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4K
+
+    documentationUrl: https://docs.cloud.google.com/mcp/overview
+    repositoryUrl: https://github.com/google/mcp
+    sourceCode: google/mcp
+    customProperties:
+      google:
+        metadataType: MetadataStringValue
+        string_value: ""
+      cloud:
+        metadataType: MetadataStringValue
+        string_value: ""
+      workspace:
+        metadataType: MetadataStringValue
+        string_value: ""

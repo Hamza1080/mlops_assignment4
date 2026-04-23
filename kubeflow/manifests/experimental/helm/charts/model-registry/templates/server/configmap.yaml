@@ -1,0 +1,12 @@
+{{- if .Values.server.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-registry-configmap
+  labels:
+    component: model-registry-server
+data:
+  MODEL_REGISTRY_REST_SERVICE_HOST: {{ include "model-registry.service.name" . | quote }}
+  MODEL_REGISTRY_REST_SERVICE_PORT: {{ .Values.server.rest.port | quote }}
+  MODEL_REGISTRY_DATA_STORE_TYPE: {{ .Values.server.dataStoreType | quote }}
+{{- end }} 
