@@ -156,7 +156,7 @@ jobs:
     name: Continuous Deployment
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' || github.event_name == 'repository_dispatch'
+    if: false
     
     steps:
       - name: Checkout code
@@ -203,8 +203,8 @@ jobs:
         run: |
           kubectl logs -n ${{ env.KUBEFLOW_NAMESPACE }} -l app=fraud-detection-pipeline --tail=100 || true
       
-      - name: Notify deployment status
-        uses: 8398a7/action-slack@v4
+      #- name: Notify deployment status
+        # uses: 8398a7/action-slack@v3
         if: always()
         with:
           status: ${{ job.status }}
