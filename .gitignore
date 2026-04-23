@@ -43,5 +43,5 @@ artifacts/
 outputs/
 runs/
 
-!models/
-!models/xgboost.pkl
+!model/
+!model/xgboost.pkl
