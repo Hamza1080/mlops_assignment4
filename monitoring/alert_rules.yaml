@@ -1,0 +1,211 @@
+groups:
+  - name: fraud_detection_alerts
+    interval: 30s
+    rules:
+      # ========================================================================
+      # Model Performance Alerts
+      # ========================================================================
+      
+      - alert: LowModelRecall
+        expr: fraud_model_recall < 0.70
+        for: 5m
+        labels:
+          severity: critical
+          component: model
+        annotations:
+          summary: "Model recall below threshold (current: {{ $value }})"
+          description: "Fraud detection recall has dropped below 0.70. This means many fraud cases are being missed."
+          runbook_url: "https://wiki.example.com/fraud-detection/low-recall"
+          action: "Check model drift. Consider triggering retraining via repository_dispatch event."
+      
+      - alert: LowModelAUC
+        expr: fraud_model_auc_roc < 0.85
+        for: 5m
+        labels:
+          severity: critical
+          component: model
+        annotations:
+          summary: "Model AUC-ROC below deployment threshold (current: {{ $value }})"
+          description: "Overall model discrimination ability has degraded. Evaluate model for drift."
+          runbook_url: "https://wiki.example.com/fraud-detection/low-auc"
+          action: "Trigger retraining pipeline. Check for data drift or concept drift."
+      
+      - alert: HighFalsePositiveRate
+        expr: fraud_model_false_positive_rate > 0.15
+        for: 5m
+        labels:
+          severity: warning
+          component: model
+        annotations:
+          summary: "False positive rate exceeded (current: {{ $value }})"
+          description: "Many legitimate transactions are incorrectly classified as fraud."
+          runbook_url: "https://wiki.example.com/fraud-detection/high-fpr"
+          action: "Review model threshold tuning. Consider cost matrix adjustment."
+      
+      - alert: PredictionConfidenceLow
+        expr: avg(fraud_model_prediction_confidence) < 0.60
+        for: 10m
+        labels:
+          severity: warning
+          component: model
+        annotations:
+          summary: "Average prediction confidence dropped (current: {{ $value }})"
+          description: "Model is making uncertain predictions. May indicate concept drift."
+          runbook_url: "https://wiki.example.com/fraud-detection/low-confidence"
+          action: "Increase monitoring frequency. Consider proactive retraining."
+      
+      # ========================================================================
+      # Data Quality & Drift Alerts
+      # ========================================================================
+      
+      - alert: DataDriftDetected
+        expr: fraud_data_psi > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          component: data
+        annotations:
+          summary: "Population Stability Index > 0.20 (current: {{ $value }})"
+          description: "Significant distribution shift detected in production data."
+          runbook_url: "https://wiki.example.com/fraud-detection/data-drift"
+          action: "Verify data quality. If confirmed, trigger retraining via drift alert webhook."
+      
+      - alert: HighMissingDataRate
+        expr: fraud_data_missing_percentage > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: data
+        annotations:
+          summary: "Missing data rate exceeds 5% (current: {{ $value }}%)"
+          description: "High rate of missing values detected in incoming data."
+          runbook_url: "https://wiki.example.com/fraud-detection/missing-data"
+          action: "Check data pipeline. Verify upstream data sources are functioning."
+      
+      - alert: FeatureDistributionShift
+        expr: fraud_data_feature_shift_max > 0.15
+        for: 10m
+        labels:
+          severity: warning
+          component: data
+        annotations:
+          summary: "Maximum feature distribution shift: {{ $value }}"
+          description: "One or more features show significant distribution changes."
+          runbook_url: "https://wiki.example.com/fraud-detection/feature-shift"
+          action: "Identify which features shifted. Consider feature importance updates."
+      
+      # ========================================================================
+      # System & Infrastructure Alerts
+      # ========================================================================
+      
+      - alert: APIHighLatency
+        expr: histogram_quantile(0.95, fraud_api_request_duration_seconds) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "API P95 latency > 1s (current: {{ $value }}s)"
+          description: "Inference API response times are degrading."
+          runbook_url: "https://wiki.example.com/fraud-detection/api-latency"
+          action: "Check API resource utilization. Consider horizontal scaling."
+      
+      - alert: APIErrorRateHigh
+        expr: rate(fraud_api_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "API error rate > 5% (current: {{ $value }})"
+          description: "Fraud detection API is returning errors."
+          runbook_url: "https://wiki.example.com/fraud-detection/api-errors"
+          action: "Check API logs. Verify downstream services (model server, database)."
+      
+      - alert: PipelineExecutionTimeout
+        expr: fraud_pipeline_duration_seconds > 3600
+        for: 1m
+        labels:
+          severity: critical
+          component: pipeline
+        annotations:
+          summary: "Pipeline execution exceeded 1 hour"
+          description: "Kubeflow pipeline is taking longer than expected."
+          runbook_url: "https://wiki.example.com/fraud-detection/pipeline-timeout"
+          action: "Check for stuck tasks. Review resource constraints."
+      
+      - alert: PipelineFailure
+        expr: fraud_pipeline_failures_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: pipeline
+        annotations:
+          summary: "Pipeline execution failed"
+          description: "Kubeflow pipeline encountered an error."
+          runbook_url: "https://wiki.example.com/fraud-detection/pipeline-failure"
+          action: "Review pipeline logs. Check data availability."
+      
+      - alert: KubernetesNodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Kubernetes node not ready"
+          description: "One or more nodes have left the cluster."
+          runbook_url: "https://wiki.example.com/fraud-detection/node-failure"
+          action: "Investigate node status. Restart if necessary."
+      
+      - alert: PersistentVolumeSpaceLow
+        expr: kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: storage
+        annotations:
+          summary: "PVC available space < 10% ({{ $labels.persistentvolumeclaim }})"
+          description: "Artifact storage is running low on space."
+          runbook_url: "https://wiki.example.com/fraud-detection/storage-low"
+          action: "Expand PVC or clean up old artifacts."
+      
+      # ========================================================================
+      # Retraining Strategy Alerts
+      # ========================================================================
+      
+      - alert: RetrainingTriggered
+        expr: fraud_retraining_triggered_total > 0
+        for: 1m
+        labels:
+          severity: info
+          component: retraining
+        annotations:
+          summary: "Retraining pipeline triggered (reason: {{ $labels.trigger_reason }})"
+          description: "Automated retraining has been initiated."
+          runbook_url: "https://wiki.example.com/fraud-detection/retraining"
+          action: "Monitor retraining progress. Verify new model performance."
+      
+      - alert: ModelDeploymentBlocked
+        expr: fraud_model_auc_roc < 0.85
+        for: 10m
+        labels:
+          severity: warning
+          component: deployment
+        annotations:
+          summary: "Model deployment blocked - AUC below threshold"
+          description: "New model cannot be deployed due to insufficient performance."
+          runbook_url: "https://wiki.example.com/fraud-detection/deployment-blocked"
+          action: "Review model evaluation results. Investigate training issues."
+      
+      - alert: RetrainingFrequencyTooHigh
+        expr: rate(fraud_retraining_triggered_total[1h]) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: retraining
+        annotations:
+          summary: "More than 2 retraining triggers per hour"
+          description: "Excessive retraining may indicate systematic issues."
+          runbook_url: "https://wiki.example.com/fraud-detection/frequent-retrain"
+          action: "Review drift detection sensitivity. Investigate data quality issues."

@@ -1,0 +1,572 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  annotations:
+    pipelines.kubeflow.org/run_name: fraud-run-v2-4
+    workflows.argoproj.io/pod-name-format: v1
+  generateName: fraud-detection-pipeline-
+  labels:
+    pipeline/runid: a65ef61f-2606-46bd-b263-13980b833a49
+  name: fraud-detection-pipeline-fresh12
+  namespace: kubeflow-user-example-com
+spec:
+  arguments:
+    parameters:
+    - name: components-5f96c8fce73bea72ebdfb4b8826ee1953fe6a95bb471dd5d8def219d1c78035b
+      value: '{"executorLabel":"exec-deploy-decision","inputDefinitions":{"parameters":{"passes_threshold":{"parameterType":"STRING"}}},"outputDefinitions":{"parameters":{"Output":{"parameterType":"STRING"}}}}'
+    - name: implementations-5f96c8fce73bea72ebdfb4b8826ee1953fe6a95bb471dd5d8def219d1c78035b
+      value: "{\"args\":[\"--executor_input\",\"{{$}}\",\"--function_to_execute\"\
+        ,\"deploy_decision\"],\"command\":[\"sh\",\"-c\",\"\\nif ! [ -x \\\"$(command\
+        \ -v pip)\\\" ]; then\\n    python3 -m ensurepip || python3 -m ensurepip --user\
+        \ || apt-get install python3-pip\\nfi\\n\\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+        \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.3' '--no-deps'\
+        \ 'typing-extensions\\u003e=3.7.4,\\u003c5; python_version\\u003c\\\"3.9\\\
+        \"' \\u0026\\u0026 \\\"$0\\\" \\\"$@\\\"\\n\",\"sh\",\"-ec\",\"program_path=$(mktemp\
+        \ -d)\\n\\nprintf \\\"%s\\\" \\\"$0\\\" \\u003e \\\"$program_path/ephemeral_component.py\\\
+        \"\\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                  \
+        \       --component_module_path                         \\\"$program_path/ephemeral_component.py\\\
+        \"                         \\\"$@\\\"\\n\",\"\\nimport kfp\\nfrom kfp import\
+        \ dsl\\nfrom kfp.dsl import *\\nfrom typing import *\\n\\ndef deploy_decision(passes_threshold:\
+        \ str) -\\u003e str:\\n    if passes_threshold.lower() == \\\"true\\\":\\\
+        n        print(\\\"\u2713 Model APPROVED for deployment\\\")\\n        return\
+        \ \\\"DEPLOY\\\"\\n    else:\\n        print(\\\"\u26A0\uFE0F  Model REJECTED\\\
+        \")\\n        return \\\"SKIP\\\"\\n\\n\"],\"image\":\"python:3.9-slim\"}"
+    - name: components-bcb6a036e0078889c8a3a627c6c011baf30d3272b4665a58f49ad60e8cef581f
+      value: '{"executorLabel":"exec-evaluate-model","inputDefinitions":{"parameters":{"model_path":{"parameterType":"STRING"}}},"outputDefinitions":{"parameters":{"Output":{"parameterType":"STRING"}}}}'
+    - name: implementations-bcb6a036e0078889c8a3a627c6c011baf30d3272b4665a58f49ad60e8cef581f
+      value: "{\"args\":[\"--executor_input\",\"{{$}}\",\"--function_to_execute\"\
+        ,\"evaluate_model\"],\"command\":[\"sh\",\"-c\",\"\\nif ! [ -x \\\"$(command\
+        \ -v pip)\\\" ]; then\\n    python3 -m ensurepip || python3 -m ensurepip --user\
+        \ || apt-get install python3-pip\\nfi\\n\\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+        \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'xgboost'\
+        \ 'scikit-learn' 'joblib'  \\u0026\\u0026  python3 -m pip install --quiet\
+        \ --no-warn-script-location 'kfp==2.14.3' '--no-deps' 'typing-extensions\\\
+        u003e=3.7.4,\\u003c5; python_version\\u003c\\\"3.9\\\"' \\u0026\\u0026 \\\"\
+        $0\\\" \\\"$@\\\"\\n\",\"sh\",\"-ec\",\"program_path=$(mktemp -d)\\n\\nprintf\
+        \ \\\"%s\\\" \\\"$0\\\" \\u003e \\\"$program_path/ephemeral_component.py\\\
+        \"\\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                  \
+        \       --component_module_path                         \\\"$program_path/ephemeral_component.py\\\
+        \"                         \\\"$@\\\"\\n\",\"\\nimport kfp\\nfrom kfp import\
+        \ dsl\\nfrom kfp.dsl import *\\nfrom typing import *\\n\\ndef evaluate_model(model_path:\
+        \ str) -\\u003e str:\\n    import pandas as pd\\n    from sklearn.metrics\
+        \ import precision_score, recall_score, f1_score, roc_auc_score\\n    import\
+        \ joblib\\n    model = joblib.load(model_path)\\n    X_test = pd.read_csv('/artifacts/data/X_test_sample.csv')\\\
+        n    y_test = pd.read_csv('/artifacts/data/y_test_sample.csv').values.ravel()\\\
+        n    y_pred = model.predict(X_test)\\n    y_pred_proba = model.predict_proba(X_test)[:,\
+        \ 1]\\n    precision = precision_score(y_test, y_pred, zero_division=0)\\\
+        n    recall = recall_score(y_test, y_pred, zero_division=0)\\n    f1 = f1_score(y_test,\
+        \ y_pred, zero_division=0)\\n    auc = roc_auc_score(y_test, y_pred_proba)\\\
+        n    print(f\\\"\u2713 Precision: {precision:.4f}\\\")\\n    print(f\\\"\u2713\
+        \ Recall: {recall:.4f}\\\")\\n    print(f\\\"\u2713 F1: {f1:.4f}\\\")\\n \
+        \   print(f\\\"\u2713 AUC-ROC: {auc:.4f}\\\")\\n    passes = \\\"true\\\"\
+        \ if auc \\u003e= 0.85 else \\\"false\\\"\\n    print(f\\\"\u2713 Deployment\
+        \ gate (AUC \\u003e= 0.85): {passes.upper()}\\\")\\n    return passes\\n\\\
+        n\"],\"image\":\"python:3.9-slim\"}"
+    - name: components-17ce47d18ced7a5d9ef319d1ebc81db771119218a57bb39b163d657a19b9133f
+      value: '{"executorLabel":"exec-export-metrics","inputDefinitions":{"parameters":{"passes_threshold":{"parameterType":"STRING"}}},"outputDefinitions":{"parameters":{"Output":{"parameterType":"STRING"}}}}'
+    - name: implementations-17ce47d18ced7a5d9ef319d1ebc81db771119218a57bb39b163d657a19b9133f
+      value: "{\"args\":[\"--executor_input\",\"{{$}}\",\"--function_to_execute\"\
+        ,\"export_metrics\"],\"command\":[\"sh\",\"-c\",\"\\nif ! [ -x \\\"$(command\
+        \ -v pip)\\\" ]; then\\n    python3 -m ensurepip || python3 -m ensurepip --user\
+        \ || apt-get install python3-pip\\nfi\\n\\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+        \ python3 -m pip install --quiet --no-warn-script-location 'pandas'  \\u0026\\\
+        u0026  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.3'\
+        \ '--no-deps' 'typing-extensions\\u003e=3.7.4,\\u003c5; python_version\\u003c\\\
+        \"3.9\\\"' \\u0026\\u0026 \\\"$0\\\" \\\"$@\\\"\\n\",\"sh\",\"-ec\",\"program_path=$(mktemp\
+        \ -d)\\n\\nprintf \\\"%s\\\" \\\"$0\\\" \\u003e \\\"$program_path/ephemeral_component.py\\\
+        \"\\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                  \
+        \       --component_module_path                         \\\"$program_path/ephemeral_component.py\\\
+        \"                         \\\"$@\\\"\\n\",\"\\nimport kfp\\nfrom kfp import\
+        \ dsl\\nfrom kfp.dsl import *\\nfrom typing import *\\n\\ndef export_metrics(passes_threshold:\
+        \ str) -\\u003e str:\\n    import pandas as pd\\n    from datetime import\
+        \ datetime\\n    metrics = {\\n        'timestamp': [datetime.utcnow().isoformat()],\\\
+        n        'deployment_decision': [passes_threshold],\\n    }\\n    df = pd.DataFrame(metrics)\\\
+        n    path = '/artifacts/models/pipeline_metrics.csv'\\n    df.to_csv(path,\
+        \ index=False)\\n    print(f\\\"\u2713 Metrics exported to {path}\\\")\\n\
+        \    return path\\n\\n\"],\"image\":\"python:3.9-slim\"}"
+    - name: components-5994083a4fa4dede2df50501aeba9565dd05d672a715678b7cc6ef4991add5b2
+      value: '{"executorLabel":"exec-load-and-validate-data","inputDefinitions":{"parameters":{"n_features":{"defaultValue":0,"isOptional":true,"parameterType":"NUMBER_INTEGER"},"n_test_rows":{"defaultValue":0,"isOptional":true,"parameterType":"NUMBER_INTEGER"},"n_train_rows":{"defaultValue":0,"isOptional":true,"parameterType":"NUMBER_INTEGER"}}},"outputDefinitions":{"parameters":{"Output":{"parameterType":"STRING"}}}}'
+    - name: implementations-5994083a4fa4dede2df50501aeba9565dd05d672a715678b7cc6ef4991add5b2
+      value: "{\"args\":[\"--executor_input\",\"{{$}}\",\"--function_to_execute\"\
+        ,\"load_and_validate_data\"],\"command\":[\"sh\",\"-c\",\"\\nif ! [ -x \\\"\
+        $(command -v pip)\\\" ]; then\\n    python3 -m ensurepip || python3 -m ensurepip\
+        \ --user || apt-get install python3-pip\\nfi\\n\\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+        \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'numpy'\
+        \  \\u0026\\u0026  python3 -m pip install --quiet --no-warn-script-location\
+        \ 'kfp==2.14.3' '--no-deps' 'typing-extensions\\u003e=3.7.4,\\u003c5; python_version\\\
+        u003c\\\"3.9\\\"' \\u0026\\u0026 \\\"$0\\\" \\\"$@\\\"\\n\",\"sh\",\"-ec\"\
+        ,\"program_path=$(mktemp -d)\\n\\nprintf \\\"%s\\\" \\\"$0\\\" \\u003e \\\"\
+        $program_path/ephemeral_component.py\\\"\\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main\
+        \                         --component_module_path                        \
+        \ \\\"$program_path/ephemeral_component.py\\\"                         \\\"\
+        $@\\\"\\n\",\"\\nimport kfp\\nfrom kfp import dsl\\nfrom kfp.dsl import *\\\
+        nfrom typing import *\\n\\ndef load_and_validate_data(\\n    n_train_rows:\
+        \ int = 0,\\n    n_test_rows: int = 0,\\n    n_features: int = 0\\n) -\\u003e\
+        \ str:\\n    import pandas as pd\\n    X_train = pd.read_csv('/artifacts/data/X_train_sample.csv')\\\
+        n    X_test = pd.read_csv('/artifacts/data/X_test_sample.csv')\\n    y_train\
+        \ = pd.read_csv('/artifacts/data/y_train_sample.csv')\\n    y_test = pd.read_csv('/artifacts/data/y_test_sample.csv')\\\
+        n    assert X_train.shape[0] == y_train.shape[0]\\n    assert X_test.shape[0]\
+        \ == y_test.shape[0]\\n    assert X_train.shape[1] == X_test.shape[1]\\n \
+        \   print(f\\\"\u2713 X_train: {X_train.shape}, X_test: {X_test.shape}\\\"\
+        )\\n    print(\\\"\u2713 Data validation: PASS\\\")\\n    return \\\"validated\\\
+        \"\\n\\n\"],\"image\":\"python:3.9-slim\"}"
+    - name: components-34d18f69f43d2781dd369446fc159d423d4cef32dc330b0df30d301aafe95abc
+      value: '{"executorLabel":"exec-train-model","inputDefinitions":{"parameters":{"validation_status":{"parameterType":"STRING"}}},"outputDefinitions":{"parameters":{"Output":{"parameterType":"STRING"}}}}'
+    - name: implementations-34d18f69f43d2781dd369446fc159d423d4cef32dc330b0df30d301aafe95abc
+      value: "{\"args\":[\"--executor_input\",\"{{$}}\",\"--function_to_execute\"\
+        ,\"train_model\"],\"command\":[\"sh\",\"-c\",\"\\nif ! [ -x \\\"$(command\
+        \ -v pip)\\\" ]; then\\n    python3 -m ensurepip || python3 -m ensurepip --user\
+        \ || apt-get install python3-pip\\nfi\\n\\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+        \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'xgboost'\
+        \ 'scikit-learn' 'joblib'  \\u0026\\u0026  python3 -m pip install --quiet\
+        \ --no-warn-script-location 'kfp==2.14.3' '--no-deps' 'typing-extensions\\\
+        u003e=3.7.4,\\u003c5; python_version\\u003c\\\"3.9\\\"' \\u0026\\u0026 \\\"\
+        $0\\\" \\\"$@\\\"\\n\",\"sh\",\"-ec\",\"program_path=$(mktemp -d)\\n\\nprintf\
+        \ \\\"%s\\\" \\\"$0\\\" \\u003e \\\"$program_path/ephemeral_component.py\\\
+        \"\\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                  \
+        \       --component_module_path                         \\\"$program_path/ephemeral_component.py\\\
+        \"                         \\\"$@\\\"\\n\",\"\\nimport kfp\\nfrom kfp import\
+        \ dsl\\nfrom kfp.dsl import *\\nfrom typing import *\\n\\ndef train_model(validation_status:\
+        \ str) -\\u003e str:\\n    import pandas as pd\\n    from xgboost import XGBClassifier\\\
+        n    from sklearn.metrics import roc_auc_score\\n    import joblib\\n    X_train\
+        \ = pd.read_csv('/artifacts/data/X_train_sample.csv')\\n    y_train = pd.read_csv('/artifacts/data/y_train_sample.csv').values.ravel()\\\
+        n    model = XGBClassifier(\\n        n_estimators=100, max_depth=6, learning_rate=0.05,\\\
+        n        tree_method='hist', random_state=42, n_jobs=-1\\n    )\\n    model.fit(X_train,\
+        \ y_train)\\n    y_pred_proba = model.predict_proba(X_train)[:, 1]\\n    auc\
+        \ = roc_auc_score(y_train, y_pred_proba)\\n    print(f\\\"\u2713 Training\
+        \ AUC-ROC: {auc:.4f}\\\")\\n    model_path = '/artifacts/models/xgboost_kfp.pkl'\\\
+        n    joblib.dump(model, model_path)\\n    print(f\\\"\u2713 Model saved to\
+        \ {model_path}\\\")\\n    return model_path\\n\\n\"],\"image\":\"python:3.9-slim\"\
+        }"
+    - name: components-root
+      value: '{"dag":{"tasks":{"deploy-decision":{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-deploy-decision"},"dependentTasks":["evaluate-model"],"inputs":{"parameters":{"passes_threshold":{"taskOutputParameter":{"outputParameterKey":"Output","producerTask":"evaluate-model"}}}},"taskInfo":{"name":"deploy-decision"}},"evaluate-model":{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-evaluate-model"},"dependentTasks":["train-model"],"inputs":{"parameters":{"model_path":{"taskOutputParameter":{"outputParameterKey":"Output","producerTask":"train-model"}}}},"taskInfo":{"name":"evaluate-model"}},"export-metrics":{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-export-metrics"},"dependentTasks":["evaluate-model"],"inputs":{"parameters":{"passes_threshold":{"taskOutputParameter":{"outputParameterKey":"Output","producerTask":"evaluate-model"}}}},"taskInfo":{"name":"export-metrics"}},"load-and-validate-data":{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-load-and-validate-data"},"taskInfo":{"name":"load-and-validate-data"}},"train-model":{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-train-model"},"dependentTasks":["load-and-validate-data"],"inputs":{"parameters":{"validation_status":{"taskOutputParameter":{"outputParameterKey":"Output","producerTask":"load-and-validate-data"}}}},"taskInfo":{"name":"train-model"}}}}}'
+  entrypoint: entrypoint
+  podMetadata:
+    annotations:
+      pipelines.kubeflow.org/v2_component: 'true'
+    labels:
+      pipeline/runid: a65ef61f-2606-46bd-b263-13980b833a49
+      pipelines.kubeflow.org/v2_component: 'true'
+  serviceAccountName: default-editor
+  templates:
+  - container:
+      args:
+      - --type
+      - CONTAINER
+      - --pipeline_name
+      - fraud-detection-pipeline
+      - --run_id
+      - a65ef61f-2606-46bd-b263-13980b833a49
+      - --run_name
+      - '{{workflow.name}}'
+      - --run_display_name
+      - fraud-run-v2-4
+      - --dag_execution_id
+      - '{{inputs.parameters.parent-dag-id}}'
+      - --component
+      - '{{inputs.parameters.component}}'
+      - --task
+      - '{{inputs.parameters.task}}'
+      - --task_name
+      - '{{inputs.parameters.task-name}}'
+      - --container
+      - '{{inputs.parameters.container}}'
+      - --iteration_index
+      - '{{inputs.parameters.iteration-index}}'
+      - --cached_decision_path
+      - '{{outputs.parameters.cached-decision.path}}'
+      - --pod_spec_patch_path
+      - '{{outputs.parameters.pod-spec-patch.path}}'
+      - --condition_path
+      - '{{outputs.parameters.condition.path}}'
+      - --kubernetes_config
+      - '{{inputs.parameters.kubernetes-config}}'
+      - --http_proxy
+      - ''
+      - --https_proxy
+      - ''
+      - --no_proxy
+      - ''
+      - -mlmd_server_address
+      - metadata-grpc-service.kubeflow
+      - -mlmd_server_port
+      - "8080"
+      command:
+      - driver
+      image: ghcr.io/kubeflow/kfp-driver:latest
+      name: ''
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+    inputs:
+      parameters:
+      - name: component
+      - name: task
+      - name: container
+      - name: task-name
+      - name: parent-dag-id
+      - default: '-1'
+        name: iteration-index
+      - default: ''
+        name: kubernetes-config
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    name: system-container-driver
+    outputs:
+      parameters:
+      - name: pod-spec-patch
+        valueFrom:
+          default: ''
+          path: /tmp/outputs/pod-spec-patch
+      - default: 'false'
+        name: cached-decision
+        valueFrom:
+          default: 'false'
+          path: /tmp/outputs/cached-decision
+      - name: condition
+        valueFrom:
+          default: 'true'
+          path: /tmp/outputs/condition
+  - dag:
+      tasks:
+      - arguments:
+          parameters:
+          - name: pod-spec-patch
+            value: '{{inputs.parameters.pod-spec-patch}}'
+        name: executor
+        template: system-container-impl
+        when: '{{inputs.parameters.cached-decision}} != true'
+    inputs:
+      parameters:
+      - name: pod-spec-patch
+      - default: 'false'
+        name: cached-decision
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    name: system-container-executor
+    outputs: {}
+  - container:
+      command:
+      - should-be-overridden-during-runtime
+      env:
+      - name: KFP_POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: KFP_POD_UID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.uid
+      envFrom:
+      - configMapRef:
+          name: metadata-grpc-configmap
+          optional: true
+      image: gcr.io/ml-pipeline/should-be-overridden-during-runtime
+      name: ''
+      resources: {}
+      volumeMounts:
+      - mountPath: /kfp-launcher
+        name: kfp-launcher
+      - mountPath: /gcs
+        name: gcs-scratch
+      - mountPath: /s3
+        name: s3-scratch
+      - mountPath: /minio
+        name: minio-scratch
+      - mountPath: /.local
+        name: dot-local-scratch
+      - mountPath: /.cache
+        name: dot-cache-scratch
+      - mountPath: /.config
+        name: dot-config-scratch
+    initContainers:
+    - args:
+      - --copy
+      - /kfp-launcher/launch
+      command:
+      - launcher-v2
+      image: ghcr.io/kubeflow/kfp-launcher:latest
+      name: kfp-launcher
+      resources:
+        limits:
+          cpu: 500m
+          memory: 128Mi
+        requests:
+          cpu: 100m
+      volumeMounts:
+      - mountPath: /kfp-launcher
+        name: kfp-launcher
+    inputs:
+      parameters:
+      - name: pod-spec-patch
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    name: system-container-impl
+    outputs: {}
+    podSpecPatch: '{{inputs.parameters.pod-spec-patch}}'
+    volumes:
+    - emptyDir: {}
+      name: kfp-launcher
+    - emptyDir: {}
+      name: gcs-scratch
+    - emptyDir: {}
+      name: s3-scratch
+    - emptyDir: {}
+      name: minio-scratch
+    - emptyDir: {}
+      name: dot-local-scratch
+    - emptyDir: {}
+      name: dot-cache-scratch
+    - emptyDir: {}
+      name: dot-config-scratch
+  - dag:
+      tasks:
+      - arguments:
+          parameters:
+          - name: component
+            value: '{{workflow.parameters.components-5f96c8fce73bea72ebdfb4b8826ee1953fe6a95bb471dd5d8def219d1c78035b}}'
+          - name: task
+            value: '{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-deploy-decision"},"dependentTasks":["evaluate-model"],"inputs":{"parameters":{"passes_threshold":{"taskOutputParameter":{"outputParameterKey":"Output","producerTask":"evaluate-model"}}}},"taskInfo":{"name":"deploy-decision"}}'
+          - name: container
+            value: '{{workflow.parameters.implementations-5f96c8fce73bea72ebdfb4b8826ee1953fe6a95bb471dd5d8def219d1c78035b}}'
+          - name: task-name
+            value: deploy-decision
+          - name: parent-dag-id
+            value: '{{inputs.parameters.parent-dag-id}}'
+        depends: evaluate-model.Succeeded
+        name: deploy-decision-driver
+        template: system-container-driver
+      - arguments:
+          parameters:
+          - name: pod-spec-patch
+            value: '{{tasks.deploy-decision-driver.outputs.parameters.pod-spec-patch}}'
+          - default: 'false'
+            name: cached-decision
+            value: '{{tasks.deploy-decision-driver.outputs.parameters.cached-decision}}'
+        depends: deploy-decision-driver.Succeeded
+        name: deploy-decision
+        template: system-container-executor
+      - arguments:
+          parameters:
+          - name: component
+            value: '{{workflow.parameters.components-bcb6a036e0078889c8a3a627c6c011baf30d3272b4665a58f49ad60e8cef581f}}'
+          - name: task
+            value: '{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-evaluate-model"},"dependentTasks":["train-model"],"inputs":{"parameters":{"model_path":{"taskOutputParameter":{"outputParameterKey":"Output","producerTask":"train-model"}}}},"taskInfo":{"name":"evaluate-model"}}'
+          - name: container
+            value: '{{workflow.parameters.implementations-bcb6a036e0078889c8a3a627c6c011baf30d3272b4665a58f49ad60e8cef581f}}'
+          - name: task-name
+            value: evaluate-model
+          - name: parent-dag-id
+            value: '{{inputs.parameters.parent-dag-id}}'
+        depends: train-model.Succeeded
+        name: evaluate-model-driver
+        template: system-container-driver
+      - arguments:
+          parameters:
+          - name: pod-spec-patch
+            value: '{{tasks.evaluate-model-driver.outputs.parameters.pod-spec-patch}}'
+          - default: 'false'
+            name: cached-decision
+            value: '{{tasks.evaluate-model-driver.outputs.parameters.cached-decision}}'
+        depends: evaluate-model-driver.Succeeded
+        name: evaluate-model
+        template: system-container-executor
+      - arguments:
+          parameters:
+          - name: component
+            value: '{{workflow.parameters.components-17ce47d18ced7a5d9ef319d1ebc81db771119218a57bb39b163d657a19b9133f}}'
+          - name: task
+            value: '{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-export-metrics"},"dependentTasks":["evaluate-model"],"inputs":{"parameters":{"passes_threshold":{"taskOutputParameter":{"outputParameterKey":"Output","producerTask":"evaluate-model"}}}},"taskInfo":{"name":"export-metrics"}}'
+          - name: container
+            value: '{{workflow.parameters.implementations-17ce47d18ced7a5d9ef319d1ebc81db771119218a57bb39b163d657a19b9133f}}'
+          - name: task-name
+            value: export-metrics
+          - name: parent-dag-id
+            value: '{{inputs.parameters.parent-dag-id}}'
+        depends: evaluate-model.Succeeded
+        name: export-metrics-driver
+        template: system-container-driver
+      - arguments:
+          parameters:
+          - name: pod-spec-patch
+            value: '{{tasks.export-metrics-driver.outputs.parameters.pod-spec-patch}}'
+          - default: 'false'
+            name: cached-decision
+            value: '{{tasks.export-metrics-driver.outputs.parameters.cached-decision}}'
+        depends: export-metrics-driver.Succeeded
+        name: export-metrics
+        template: system-container-executor
+      - arguments:
+          parameters:
+          - name: component
+            value: '{{workflow.parameters.components-5994083a4fa4dede2df50501aeba9565dd05d672a715678b7cc6ef4991add5b2}}'
+          - name: task
+            value: '{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-load-and-validate-data"},"taskInfo":{"name":"load-and-validate-data"}}'
+          - name: container
+            value: '{{workflow.parameters.implementations-5994083a4fa4dede2df50501aeba9565dd05d672a715678b7cc6ef4991add5b2}}'
+          - name: task-name
+            value: load-and-validate-data
+          - name: parent-dag-id
+            value: '{{inputs.parameters.parent-dag-id}}'
+        name: load-and-validate-data-driver
+        template: system-container-driver
+      - arguments:
+          parameters:
+          - name: pod-spec-patch
+            value: '{{tasks.load-and-validate-data-driver.outputs.parameters.pod-spec-patch}}'
+          - default: 'false'
+            name: cached-decision
+            value: '{{tasks.load-and-validate-data-driver.outputs.parameters.cached-decision}}'
+        depends: load-and-validate-data-driver.Succeeded
+        name: load-and-validate-data
+        template: system-container-executor
+      - arguments:
+          parameters:
+          - name: component
+            value: '{{workflow.parameters.components-34d18f69f43d2781dd369446fc159d423d4cef32dc330b0df30d301aafe95abc}}'
+          - name: task
+            value: '{"cachingOptions":{"enableCache":false},"componentRef":{"name":"comp-train-model"},"dependentTasks":["load-and-validate-data"],"inputs":{"parameters":{"validation_status":{"taskOutputParameter":{"outputParameterKey":"Output","producerTask":"load-and-validate-data"}}}},"taskInfo":{"name":"train-model"}}'
+          - name: container
+            value: '{{workflow.parameters.implementations-34d18f69f43d2781dd369446fc159d423d4cef32dc330b0df30d301aafe95abc}}'
+          - name: task-name
+            value: train-model
+          - name: parent-dag-id
+            value: '{{inputs.parameters.parent-dag-id}}'
+        depends: load-and-validate-data.Succeeded
+        name: train-model-driver
+        template: system-container-driver
+      - arguments:
+          parameters:
+          - name: pod-spec-patch
+            value: '{{tasks.train-model-driver.outputs.parameters.pod-spec-patch}}'
+          - default: 'false'
+            name: cached-decision
+            value: '{{tasks.train-model-driver.outputs.parameters.cached-decision}}'
+        depends: train-model-driver.Succeeded
+        name: train-model
+        template: system-container-executor
+    inputs:
+      parameters:
+      - name: parent-dag-id
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    name: root
+    outputs: {}
+  - container:
+      args:
+      - --type
+      - '{{inputs.parameters.driver-type}}'
+      - --pipeline_name
+      - fraud-detection-pipeline
+      - --run_id
+      - a65ef61f-2606-46bd-b263-13980b833a49
+      - --run_name
+      - '{{workflow.name}}'
+      - --run_display_name
+      - fraud-run-v2-4
+      - --dag_execution_id
+      - '{{inputs.parameters.parent-dag-id}}'
+      - --component
+      - '{{inputs.parameters.component}}'
+      - --task
+      - '{{inputs.parameters.task}}'
+      - --task_name
+      - '{{inputs.parameters.task-name}}'
+      - --runtime_config
+      - '{{inputs.parameters.runtime-config}}'
+      - --iteration_index
+      - '{{inputs.parameters.iteration-index}}'
+      - --execution_id_path
+      - '{{outputs.parameters.execution-id.path}}'
+      - --iteration_count_path
+      - '{{outputs.parameters.iteration-count.path}}'
+      - --condition_path
+      - '{{outputs.parameters.condition.path}}'
+      - --http_proxy
+      - ''
+      - --https_proxy
+      - ''
+      - --no_proxy
+      - ''
+      - -mlmd_server_address
+      - metadata-grpc-service.kubeflow
+      - -mlmd_server_port
+      - "8080"
+      command:
+      - driver
+      image: ghcr.io/kubeflow/kfp-driver:latest
+      name: ''
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+    inputs:
+      parameters:
+      - name: component
+      - default: ''
+        name: runtime-config
+      - default: ''
+        name: task
+      - default: ''
+        name: task-name
+      - default: '0'
+        name: parent-dag-id
+      - default: '-1'
+        name: iteration-index
+      - default: DAG
+        name: driver-type
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    name: system-dag-driver
+    outputs:
+      parameters:
+      - name: execution-id
+        valueFrom:
+          path: /tmp/outputs/execution-id
+      - name: iteration-count
+        valueFrom:
+          default: '0'
+          path: /tmp/outputs/iteration-count
+      - name: condition
+        valueFrom:
+          default: 'true'
+          path: /tmp/outputs/condition
+  - dag:
+      tasks:
+      - arguments:
+          parameters:
+          - name: component
+            value: '{{workflow.parameters.components-root}}'
+          - name: runtime-config
+            value: '{}'
+          - name: driver-type
+            value: ROOT_DAG
+        name: root-driver
+        template: system-dag-driver
+      - arguments:
+          parameters:
+          - name: parent-dag-id
+            value: '{{tasks.root-driver.outputs.parameters.execution-id}}'
+          - name: condition
+            value: ''
+        depends: root-driver.Succeeded
+        name: root
+        template: root
+    inputs: {}
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: 'false'
+    name: entrypoint
+    outputs: {}

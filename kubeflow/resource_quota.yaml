@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: fraud-detection-quota
+  namespace: fraud-detection
+spec:
+  hard:
+    requests.cpu: "4"           # Max 4 CPU cores per pipeline run
+    requests.memory: "8Gi"      # Max 8GB RAM per pipeline run
+    limits.cpu: "6"
+    limits.memory: "12Gi"
+    pods: "10"                  # Max 10 pods running simultaneously
+  scopeSelector:
+    matchExpressions:
+      - operator: In
+        scopeName: PriorityClass
+        values: ["default"]

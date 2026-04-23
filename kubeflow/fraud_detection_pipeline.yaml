@@ -1,0 +1,359 @@
+# PIPELINE DEFINITION
+# Name: fraud-detection-pipeline
+# Description: Fraud detection ML pipeline
+components:
+  comp-deploy-decision:
+    executorLabel: exec-deploy-decision
+    inputDefinitions:
+      parameters:
+        passes_threshold:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-evaluate-model:
+    executorLabel: exec-evaluate-model
+    inputDefinitions:
+      parameters:
+        model_path:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-export-metrics:
+    executorLabel: exec-export-metrics
+    inputDefinitions:
+      parameters:
+        passes_threshold:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-load-and-validate-data:
+    executorLabel: exec-load-and-validate-data
+    inputDefinitions:
+      parameters:
+        n_features:
+          defaultValue: 0.0
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        n_test_rows:
+          defaultValue: 0.0
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        n_train_rows:
+          defaultValue: 0.0
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-train-model:
+    executorLabel: exec-train-model
+    inputDefinitions:
+      parameters:
+        validation_status:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-deploy-decision:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - deploy_decision
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef deploy_decision(passes_threshold: str) -> str:\n    if passes_threshold.lower()\
+          \ == \"true\":\n        print(\"\u2713 Model APPROVED for deployment\")\n\
+          \        return \"DEPLOY\"\n    else:\n        print(\"\u26A0\uFE0F  Model\
+          \ REJECTED\")\n        return \"SKIP\"\n\n"
+        image: 10.107.196.7/fraud-base:latest
+    exec-evaluate-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'xgboost'\
+          \ 'scikit-learn' 'joblib'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_model(model_path: str) -> str:\n    import pandas as\
+          \ pd\n    from sklearn.metrics import precision_score, recall_score, f1_score,\
+          \ roc_auc_score\n    import joblib\n    model = joblib.load(model_path)\n\
+          \    X_test = pd.read_csv('/artifacts/data/X_test_sample.csv')\n    y_test\
+          \ = pd.read_csv('/artifacts/data/y_test_sample.csv').values.ravel()\n  \
+          \  y_pred = model.predict(X_test)\n    y_pred_proba = model.predict_proba(X_test)[:,\
+          \ 1]\n    precision = precision_score(y_test, y_pred, zero_division=0)\n\
+          \    recall = recall_score(y_test, y_pred, zero_division=0)\n    f1 = f1_score(y_test,\
+          \ y_pred, zero_division=0)\n    auc = roc_auc_score(y_test, y_pred_proba)\n\
+          \    print(f\"\u2713 Precision: {precision:.4f}\")\n    print(f\"\u2713\
+          \ Recall: {recall:.4f}\")\n    print(f\"\u2713 F1: {f1:.4f}\")\n    print(f\"\
+          \u2713 AUC-ROC: {auc:.4f}\")\n    passes = \"true\" if auc >= 0.85 else\
+          \ \"false\"\n    print(f\"\u2713 Deployment gate (AUC >= 0.85): {passes.upper()}\"\
+          )\n    return passes\n\n"
+        image: 10.107.196.7/fraud-base:latest
+    exec-export-metrics:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - export_metrics
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef export_metrics(passes_threshold: str) -> str:\n    import pandas\
+          \ as pd\n    from datetime import datetime\n    metrics = {\n        'timestamp':\
+          \ [datetime.utcnow().isoformat()],\n        'deployment_decision': [passes_threshold],\n\
+          \    }\n    df = pd.DataFrame(metrics)\n    path = '/artifacts/models/pipeline_metrics.csv'\n\
+          \    df.to_csv(path, index=False)\n    print(f\"\u2713 Metrics exported\
+          \ to {path}\")\n    return path\n\n"
+        image: 10.107.196.7/fraud-base:latest
+    exec-load-and-validate-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - load_and_validate_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'numpy'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef load_and_validate_data(\n    n_train_rows: int = 0,\n    n_test_rows:\
+          \ int = 0,\n    n_features: int = 0\n) -> str:\n    import pandas as pd\n\
+          \    X_train = pd.read_csv('/artifacts/data/X_train_sample.csv')\n    X_test\
+          \ = pd.read_csv('/artifacts/data/X_test_sample.csv')\n    y_train = pd.read_csv('/artifacts/data/y_train_sample.csv')\n\
+          \    y_test = pd.read_csv('/artifacts/data/y_test_sample.csv')\n    assert\
+          \ X_train.shape[0] == y_train.shape[0]\n    assert X_test.shape[0] == y_test.shape[0]\n\
+          \    assert X_train.shape[1] == X_test.shape[1]\n    print(f\"\u2713 X_train:\
+          \ {X_train.shape}, X_test: {X_test.shape}\")\n    print(\"\u2713 Data validation:\
+          \ PASS\")\n    return \"validated\"\n\n"
+        image: 10.107.196.7/fraud-base:latest
+    exec-train-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas' 'xgboost'\
+          \ 'scikit-learn' 'joblib'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train_model(validation_status: str) -> str:\n    import pandas\
+          \ as pd\n    from xgboost import XGBClassifier\n    from sklearn.metrics\
+          \ import roc_auc_score\n    import joblib\n    X_train = pd.read_csv('/artifacts/data/X_train_sample.csv')\n\
+          \    y_train = pd.read_csv('/artifacts/data/y_train_sample.csv').values.ravel()\n\
+          \    model = XGBClassifier(\n        n_estimators=100, max_depth=6, learning_rate=0.05,\n\
+          \        tree_method='hist', random_state=42, n_jobs=-1\n    )\n    model.fit(X_train,\
+          \ y_train)\n    y_pred_proba = model.predict_proba(X_train)[:, 1]\n    auc\
+          \ = roc_auc_score(y_train, y_pred_proba)\n    print(f\"\u2713 Training AUC-ROC:\
+          \ {auc:.4f}\")\n    model_path = '/artifacts/models/xgboost_kfp.pkl'\n \
+          \   joblib.dump(model, model_path)\n    print(f\"\u2713 Model saved to {model_path}\"\
+          )\n    return model_path\n\n"
+        image: 10.107.196.7/fraud-base:latest
+pipelineInfo:
+  description: Fraud detection ML pipeline
+  name: fraud-detection-pipeline
+root:
+  dag:
+    tasks:
+      deploy-decision:
+        cachingOptions: {}
+        componentRef:
+          name: comp-deploy-decision
+        dependentTasks:
+        - evaluate-model
+        inputs:
+          parameters:
+            passes_threshold:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: evaluate-model
+        taskInfo:
+          name: deploy-decision
+      evaluate-model:
+        cachingOptions: {}
+        componentRef:
+          name: comp-evaluate-model
+        dependentTasks:
+        - train-model
+        inputs:
+          parameters:
+            model_path:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: train-model
+        taskInfo:
+          name: evaluate-model
+      export-metrics:
+        cachingOptions: {}
+        componentRef:
+          name: comp-export-metrics
+        dependentTasks:
+        - evaluate-model
+        inputs:
+          parameters:
+            passes_threshold:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: evaluate-model
+        taskInfo:
+          name: export-metrics
+      load-and-validate-data:
+        cachingOptions: {}
+        componentRef:
+          name: comp-load-and-validate-data
+        taskInfo:
+          name: load-and-validate-data
+      train-model:
+        cachingOptions: {}
+        componentRef:
+          name: comp-train-model
+        dependentTasks:
+        - load-and-validate-data
+        inputs:
+          parameters:
+            validation_status:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: load-and-validate-data
+        taskInfo:
+          name: train-model
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.16.0
+---
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-deploy-decision:
+          pvcMount:
+          - constant: fraud-artifacts-pvc
+            mountPath: /artifacts
+            pvcNameParameter:
+              runtimeValue:
+                constant: fraud-artifacts-pvc
+        exec-evaluate-model:
+          pvcMount:
+          - constant: fraud-artifacts-pvc
+            mountPath: /artifacts
+            pvcNameParameter:
+              runtimeValue:
+                constant: fraud-artifacts-pvc
+        exec-export-metrics:
+          pvcMount:
+          - constant: fraud-artifacts-pvc
+            mountPath: /artifacts
+            pvcNameParameter:
+              runtimeValue:
+                constant: fraud-artifacts-pvc
+        exec-load-and-validate-data:
+          pvcMount:
+          - constant: fraud-artifacts-pvc
+            mountPath: /artifacts
+            pvcNameParameter:
+              runtimeValue:
+                constant: fraud-artifacts-pvc
+        exec-train-model:
+          pvcMount:
+          - constant: fraud-artifacts-pvc
+            mountPath: /artifacts
+            pvcNameParameter:
+              runtimeValue:
+                constant: fraud-artifacts-pvc

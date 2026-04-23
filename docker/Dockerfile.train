@@ -1,0 +1,33 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy training scripts
+COPY kubeflow/pipeline.py /app/pipeline.py
+COPY scripts/ /app/scripts/
+COPY data/ /app/data/
+
+# Create output directory for models
+RUN mkdir -p /models /logs
+
+ENV PYTHONUNBUFFERED=1
+ENV LOG_LEVEL=INFO
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import sys; sys.exit(0)" || exit 1
+
+ENTRYPOINT ["python", "-m", "kfp.v2.components.runtime_executor"]
+CMD []

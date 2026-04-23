@@ -1,0 +1,249 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: fraud-detection-pipeline-
+  namespace: fraud-detection
+spec:
+  entrypoint: fraud-detection-pipeline
+  activeDeadlineSeconds: 86400  # 24 hour timeout for entire pipeline
+  serviceAccountName: pipeline-runner
+  volumes:
+    - name: artifact-storage
+      persistentVolumeClaim:
+        claimName: fraud-artifacts-pvc
+  
+  templates:
+    - name: fraud-detection-pipeline
+      dag:
+        tasks:
+          # Stage 1: Data Ingestion (2GB raw data, ~1 min)
+          - name: data-ingestion
+            template: data-ingestion
+            arguments:
+              parameters:
+                - name: data-path
+                  value: "/data/train.csv"
+          
+          # Stage 2: Data Validation (runs after ingestion)
+          - name: data-validation
+            template: data-validation
+            depends: data-ingestion.Succeeded
+            arguments:
+              parameters:
+                - name: validation-rules
+                  value: "{\"required_cols\": [\"Time\", \"Amount\", \"Class\"], \"max_missing_pct\": 0.95}"
+          
+          # Stage 3: Preprocessing (runs after validation, saves scaler)
+          - name: preprocessing
+            template: preprocessing
+            depends: data-validation.Succeeded
+            arguments:
+              parameters:
+                - name: strategy
+                  value: "median_impute+frequency_encode"
+          
+          # Stage 4: Feature Engineering (temporal + interaction features)
+          - name: feature-engineering
+            template: feature-engineering
+            depends: preprocessing.Succeeded
+          
+          # Stage 5: Model Training (XGBoost + LightGBM, AUC comparison)
+          - name: model-training
+            template: model-training
+            depends: feature-engineering.Succeeded
+            arguments:
+              parameters:
+                - name: xgb-params
+                  value: "{\"n_estimators\": 300, \"max_depth\": 6, \"learning_rate\": 0.05}"
+                - name: cost-weight
+                  value: "100"  # scale_pos_weight for cost-sensitive
+          
+          # Stage 6: Model Evaluation (compute metrics, returns pass/fail)
+          - name: model-evaluation
+            template: model-evaluation
+            depends: model-training.Succeeded
+            arguments:
+              parameters:
+                - name: auc-threshold
+                  value: "0.85"  # Deployment gate
+          
+          # Stage 7: Conditional Deployment (only if AUC >= 0.85)
+          - name: deploy-model
+            template: conditional-deploy
+            depends: model-evaluation.Succeeded
+            arguments:
+              parameters:
+                - name: passes-threshold
+                  value: "{{tasks.model-evaluation.outputs.parameters.passes-threshold}}"
+    
+    # Component templates (simplified for this manifest)
+    - name: data-ingestion
+      inputs:
+        parameters:
+          - name: data-path
+      container:
+        image: python:3.9
+        command: ["python", "-c"]
+        args:
+          - |
+            import pandas as pd
+            df = pd.read_csv('{{inputs.parameters.data-path}}')
+            print(f"Loaded {df.shape[0]} rows, {df.shape[1]} features")
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        volumeMounts:
+          - name: artifact-storage
+            mountPath: /artifacts
+    
+    - name: data-validation
+      inputs:
+        parameters:
+          - name: validation-rules
+      container:
+        image: python:3.9
+        command: ["python", "-c"]
+        args:
+          - |
+            import json
+            rules = json.loads('{{inputs.parameters.validation-rules}}')
+            print(f"Validating {len(rules['required_cols'])} required columns...")
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "0.5"
+    
+    - name: preprocessing
+      inputs:
+        parameters:
+          - name: strategy
+      container:
+        image: python:3.9
+        command: ["python"]
+        args:
+          - "/scripts/preprocess.py"
+        env:
+          - name: STRATEGY
+            value: "{{inputs.parameters.strategy}}"
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "6Gi"
+            cpu: "3"
+        volumeMounts:
+          - name: artifact-storage
+            mountPath: /artifacts
+    
+    - name: feature-engineering
+      container:
+        image: python:3.9
+        command: ["python"]
+        args:
+          - "/scripts/feature_eng.py"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+        volumeMounts:
+          - name: artifact-storage
+            mountPath: /artifacts
+    
+    - name: model-training
+      inputs:
+        parameters:
+          - name: xgb-params
+          - name: cost-weight
+      container:
+        image: python:3.9
+        command: ["python"]
+        args:
+          - "/scripts/train.py"
+        env:
+          - name: XGB_PARAMS
+            value: "{{inputs.parameters.xgb-params}}"
+          - name: COST_WEIGHT
+            value: "{{inputs.parameters.cost-weight}}"
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+        volumeMounts:
+          - name: artifact-storage
+            mountPath: /artifacts
+    
+    - name: model-evaluation
+      inputs:
+        parameters:
+          - name: auc-threshold
+      outputs:
+        parameters:
+          - name: passes-threshold
+            valueFrom:
+              path: /tmp/passes_threshold.txt
+      container:
+        image: python:3.9
+        command: ["python"]
+        args:
+          - "/scripts/evaluate.py"
+        env:
+          - name: AUC_THRESHOLD
+            value: "{{inputs.parameters.auc-threshold}}"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+        volumeMounts:
+          - name: artifact-storage
+            mountPath: /artifacts
+    
+    - name: conditional-deploy
+      inputs:
+        parameters:
+          - name: passes-threshold
+      container:
+        image: python:3.9
+        command: ["sh", "-c"]
+        args:
+          - |
+            if [ "{{inputs.parameters.passes-threshold}}" == "true" ]; then
+              echo "✓ Deploying model to production..."
+              # kubectl apply -f deployment.yaml
+              exit 0
+            else
+              echo "✗ Model evaluation failed. Skipping deployment."
+              exit 0  # Don't fail pipeline, just skip deployment
+            fi
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "0.2"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pipeline-runner
+  namespace: fraud-detection
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pipeline-runner-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin  # For demo; restrict in production
+subjects:
+  - kind: ServiceAccount
+    name: pipeline-runner
+    namespace: fraud-detection

@@ -3,6 +3,7 @@ data/*.csv
 data/*.parquet
 data/raw/
 data/processed/
+data/
 
 # Python cache and environments
 __pycache__/

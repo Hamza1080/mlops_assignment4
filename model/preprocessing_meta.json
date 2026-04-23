@@ -1,0 +1,8 @@
+{
+  "n_features": 530,
+  "n_train_rows": 911804,
+  "preprocessing_mode": "csv_preloaded",
+  "freq_maps_available": false,
+  "le_maps_available": false,
+  "scaler_saved": true
+}

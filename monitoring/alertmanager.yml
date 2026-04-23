@@ -1,0 +1,131 @@
+global:
+  resolve_timeout: 5m
+  slack_api_url: ${SLACK_WEBHOOK_URL}
+
+templates:
+  - '/etc/alertmanager/templates/default.tmpl'
+
+route:
+  receiver: 'default'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  
+  routes:
+    # Critical model performance alerts -> immediate Slack notification
+    - match:
+        severity: critical
+        component: model
+      receiver: 'critical-model'
+      group_wait: 1s
+      repeat_interval: 1h
+    
+    # Data drift alerts -> immediate Slack + repository dispatch
+    - match:
+        severity: warning
+        component: data
+      receiver: 'data-drift'
+      group_wait: 5m
+      repeat_interval: 6h
+    
+    # Infrastructure alerts -> PagerDuty (on-call rotation)
+    - match:
+        severity: critical
+        component: infrastructure
+      receiver: 'pagerduty-critical'
+      group_wait: 1s
+      repeat_interval: 1h
+    
+    # API errors -> Slack with rate limiting
+    - match:
+        severity: critical
+        component: api
+      receiver: 'api-errors'
+      group_wait: 5m
+      repeat_interval: 2h
+    
+    # Info-level (retraining events) -> silent or logging only
+    - match:
+        severity: info
+      receiver: 'logs'
+      group_wait: 10m
+
+receivers:
+  # Default receiver (all alerts)
+  - name: 'default'
+    slack_configs:
+      - channel: '#fraud-detection-alerts'
+        title: 'Fraud Detection Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+
+  # Critical model performance
+  - name: 'critical-model'
+    slack_configs:
+      - channel: '#fraud-detection-critical'
+        title: '🚨 CRITICAL: Model Performance Degradation'
+        text: |
+          Alert: {{ .GroupLabels.alertname }}
+          Severity: {{ .GroupLabels.severity }}
+          {{ range .Alerts }}{{ .Annotations.summary }}: {{ .Annotations.description }}
+          Action: {{ .Annotations.action }}
+          {{ end }}
+        send_resolved: true
+    # Also send to on-call via webhook
+    webhook_configs:
+      - url: '${PAGERDUTY_WEBHOOK_URL}'
+
+  # Data drift alert -> triggers CI/CD pipeline
+  - name: 'data-drift'
+    slack_configs:
+      - channel: '#fraud-detection-alerts'
+        title: '⚠️ WARNING: Data Distribution Drift Detected'
+        text: |
+          {{ range .Alerts }}
+          Feature Distribution Shift: {{ .Annotations.summary }}
+          Details: {{ .Annotations.description }}
+          Action: {{ .Annotations.action }}
+          {{ end }}
+        send_resolved: true
+    # Trigger GitHub Actions workflow via webhook
+    webhook_configs:
+      - url: '${GITHUB_WEBHOOK_URL}'
+        send_resolved: false
+
+  # API error handling
+  - name: 'api-errors'
+    slack_configs:
+      - channel: '#fraud-detection-api'
+        title: '🔴 API Error Rate High'
+        text: '{{ range .Alerts }}{{ .Annotations.description }} | Action: {{ .Annotations.action }}{{ end }}'
+        send_resolved: true
+
+  # Infrastructure critical
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        description: '{{ .GroupLabels.alertname }}'
+        details:
+          firing: '{{ range .Alerts.Firing }}{{ .Labels.instance }} {{ end }}'
+
+  # Logs receiver (silent/async)
+  - name: 'logs'
+    webhook_configs:
+      - url: 'http://log-collector:5000/alerts'
+        send_resolved: true
+
+inhibit_rules:
+  # Inhibit low-priority alerts while high-priority ones are firing
+  - source_match:
+      severity: critical
+    target_match_re:
+      severity: 'warning|info'
+    equal: ['alertname', 'component']
+
+  # Inhibit deployment-blocked alerts if model training is failing
+  - source_match:
+      alertname: 'PipelineFailure'
+    target_match:
+      alertname: 'ModelDeploymentBlocked'
+    equal: ['cluster']

@@ -1,0 +1,8 @@
+apiVersion: kubeflow.org/v1
+kind: Profile
+metadata:
+  name: mlops-work
+spec:
+  owner:
+    kind: User
+    name: kubeflow-user@example.com
