@@ -125,8 +125,9 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_TRAIN }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_TRAIN }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          
+          
+          no-cache: true
       
       # Build API image
       - name: Build API image
@@ -138,8 +139,9 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          
+          
+          no-cache: true
       
       - name: Image scan for vulnerabilities
         run: |
