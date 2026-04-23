@@ -23,9 +23,8 @@ on:
       - performance-degradation-alert
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME_TRAIN: ${{ github.repository_owner }}/mlops_assignment4/fraud-train
-  IMAGE_NAME_API: ${{ github.repository_owner }}/mlops_assignment4/fraud-api
+  IMAGE_NAME_TRAIN: hamza1080/mlops_assignment4/fraud-train
+  IMAGE_NAME_API: hamza1080/mlops_assignment4/fraud-api
   KUBEFLOW_NAMESPACE: fraud-detection
 
 jobs:
