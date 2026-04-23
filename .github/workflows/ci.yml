@@ -112,8 +112,8 @@ jobs:
       - name: Log in to Container Registry
         uses: docker/login-action@v4
         with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       
       # Build training image
       - name: Build training image
