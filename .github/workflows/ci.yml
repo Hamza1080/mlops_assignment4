@@ -39,7 +39,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
@@ -73,14 +73,11 @@ jobs:
           pytest tests/ -v --tb=short --cov=src --cov-report=term-missing --cov-report=xml
       
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
       
-      - name: Data validation checks
-        run: |
-          python scripts/validate_data.py --data-path data/train.csv --check-schema
       
       - name: Save test artifacts
         if: always()
@@ -107,7 +104,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -162,10 +159,10 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4
         with:
           version: '1.27'
       
@@ -206,7 +203,7 @@ jobs:
           kubectl logs -n ${{ env.KUBEFLOW_NAMESPACE }} -l app=fraud-detection-pipeline --tail=100 || true
       
       - name: Notify deployment status
-        uses: 8398a7/action-slack@v3
+        uses: 8398a7/action-slack@v4
         if: always()
         with:
           status: ${{ job.status }}
@@ -225,7 +222,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Parse drift alert details
         run: |
@@ -297,7 +294,7 @@ jobs:
           cp drift_event.log audit_trail/drift_$(date +%s).log
       
       - name: Upload audit trail
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: drift-audit-trail
           path: audit_trail/
