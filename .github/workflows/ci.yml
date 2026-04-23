@@ -205,12 +205,12 @@ jobs:
       
       #- name: Notify deployment status
         # uses: 8398a7/action-slack@v3
-        if: always()
-        with:
-          status: ${{ job.status }}
-          text: |
-            Deployment ${{ job.status }}: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        # if: always()
+        # with:
+        #   status: ${{ job.status }}
+        #   text: |
+        #     Deployment ${{ job.status }}: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        #   webhook_url: ${{ secrets.SLACK_WEBHOOK }}
   
   # ============================================================================
   # Stage 4: Intelligent Trigger (Drift-Based Retraining)
