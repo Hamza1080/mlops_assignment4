@@ -15,9 +15,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy training scripts
-COPY kubeflow/pipeline.py /app/pipeline.py
+COPY kubeflow/pipeline_v2.py /app/pipeline.py
 COPY scripts/ /app/scripts/
-COPY data/ /app/data/
+# COPY data/ /app/data/  # data excluded from repo
 
 # Create output directory for models
 RUN mkdir -p /models /logs
