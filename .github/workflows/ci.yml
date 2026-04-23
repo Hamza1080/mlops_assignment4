@@ -171,8 +171,6 @@ jobs:
 
       - name: Run MLflow pipeline
         run: python mlflow_pipeline.py
-        env:
-          MLFLOW_TRACKING_URI: http://localhost:5000
 
       - name: Upload model artifacts
         uses: actions/upload-artifact@v4

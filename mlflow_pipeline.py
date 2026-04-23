@@ -26,13 +26,13 @@ from lightgbm import LGBMClassifier
 # Configuration
 # ============================================================================
 
-MLFLOW_TRACKING_URI = "http://localhost:5000"
+MLFLOW_TRACKING_URI = "mlruns"
 EXPERIMENT_NAME = "fraud-detection-pipeline"
 DATA_DIR = "data"
 MODEL_DIR = "model"
 AUC_THRESHOLD = 0.85
 
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)  
 
 # ============================================================================
 # Step 1: Load and Validate Data
