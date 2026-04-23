@@ -9,8 +9,10 @@ on:
       - 'src/**'
       - 'kubeflow/**'
       - 'tests/**'
+      - 'data/**'
       - 'requirements.txt'
       - '.github/workflows/ci.yml'
+      - 'mlflow_pipeline.py'
   
   pull_request:
     branches:
