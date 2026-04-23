@@ -153,65 +153,33 @@ jobs:
   # ============================================================================
   
   deploy:
-    name: Continuous Deployment
+    name: Continuous Deployment - MLflow Retraining
     runs-on: ubuntu-latest
     needs: build
-    if: false
-    
+    if: github.event_name == 'push' || github.event_name == 'repository_dispatch'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
         with:
-          version: '1.27'
-      
-      - name: Configure Kubernetes access
-        run: |
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
-          chmod 600 ~/.kube/config
-          kubectl cluster-info
-      
-      - name: Create namespace and prerequisites
-        run: |
-          kubectl apply -f kubeflow/namespace.yaml
-          kubectl apply -f kubeflow/resource_quota.yaml
-          kubectl apply -f kubeflow/pvc.yaml
-      
-      - name: Compile Kubeflow pipeline
-        run: |
-          python -m pip install kfp==2.3.0 google-cloud-aiplatform
-          python kubeflow/compile_pipeline.py
-      
-      - name: Deploy Kubeflow pipeline
-        run: |
-          kubectl apply -f kubeflow/deployment.yaml
-          echo "Waiting for pipeline deployment..."
-          kubectl wait --for=condition=Ready pod \
-            -l app=fraud-detection-pipeline \
-            -n ${{ env.KUBEFLOW_NAMESPACE }} \
-            --timeout=300s || true
-      
-      - name: Verify pipeline status
-        run: |
-          kubectl get pods -n ${{ env.KUBEFLOW_NAMESPACE }}
-          kubectl describe workflow -n ${{ env.KUBEFLOW_NAMESPACE }} || true
-      
-      - name: Fetch pipeline logs
-        if: always()
-        run: |
-          kubectl logs -n ${{ env.KUBEFLOW_NAMESPACE }} -l app=fraud-detection-pipeline --tail=100 || true
-      
-      #- name: Notify deployment status
-        # uses: 8398a7/action-slack@v3
-        # if: always()
-        # with:
-        #   status: ${{ job.status }}
-        #   text: |
-        #     Deployment ${{ job.status }}: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        #   webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-  
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install mlflow xgboost lightgbm scikit-learn pandas numpy joblib
+
+      - name: Run MLflow pipeline
+        run: python mlflow_pipeline.py
+        env:
+          MLFLOW_TRACKING_URI: http://localhost:5000
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-artifacts
+          path: model/
+
   # ============================================================================
   # Stage 4: Intelligent Trigger (Drift-Based Retraining)
   # ============================================================================

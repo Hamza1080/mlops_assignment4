@@ -10,13 +10,9 @@ volumes:
   alertmanager_data:
 
 services:
-  # ============================================================================
-  # Prometheus Time-Series Database
-  # ============================================================================
   prometheus:
     image: prom/prometheus:v2.45.0
     container_name: prometheus
-    hostname: prometheus
     networks:
       - monitoring
     ports:
@@ -29,22 +25,11 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=30d'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ============================================================================
-  # Alertmanager (Alert Routing & Notifications)
-  # ============================================================================
   alertmanager:
     image: prom/alertmanager:v0.25.0
     container_name: alertmanager
-    hostname: alertmanager
     networks:
       - monitoring
     ports:
@@ -56,155 +41,38 @@ services:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ============================================================================
-  # Grafana Visualization & Dashboards
-  # ============================================================================
   grafana:
     image: grafana/grafana:10.0.0
     container_name: grafana
-    hostname: grafana
     networks:
       - monitoring
     ports:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-changeme}
+      GF_SECURITY_ADMIN_PASSWORD: changeme
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_USERS_DEFAULT_THEME: dark
-      GF_DATE_FORMAT: YYYY-MM-DD HH:mm:ss
-      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource"
-      GF_SMTP_ENABLED: "false"  # Configure for email alerts if needed
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     restart: unless-stopped
     depends_on:
       - prometheus
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ============================================================================
-  # Pushgateway (Metrics Push for Batch Jobs)
-  # ============================================================================
   pushgateway:
     image: prom/pushgateway:v1.6.0
     container_name: pushgateway
-    hostname: pushgateway
     networks:
       - monitoring
     ports:
       - "9091:9091"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9091"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ============================================================================
-  # Node Exporter (System Metrics)
-  # ============================================================================
   node-exporter:
     image: prom/node-exporter:v1.6.1
     container_name: node-exporter
-    hostname: node-exporter
     networks:
       - monitoring
     ports:
       - "9100:9100"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     restart: unless-stopped
-
-  # ============================================================================
-  # cAdvisor (Container Metrics)
-  # ============================================================================
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.0
-    container_name: cadvisor
-    hostname: cadvisor
-    networks:
-      - monitoring
-    ports:
-      - "8080:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-    restart: unless-stopped
-    security_opt:
-      - "apparmor:unconfined"
-    privileged: true
-    cap_add:
-      - SYS_ADMIN
-
-  # ============================================================================
-  # Fraud Detection API (with Prometheus metrics endpoint)
-  # ============================================================================
-  fraud-api:
-    build:
-      context: ../
-      dockerfile: docker/Dockerfile.api
-    container_name: fraud-api
-    hostname: fraud-api
-    networks:
-      - monitoring
-    ports:
-      - "8000:8000"
-    environment:
-      MODEL_PATH: "/models/xgboost.pkl"
-      SCALER_PATH: "/models/scaler.pkl"
-      PROMETHEUS_NAMESPACE: "fraud"
-      LOG_LEVEL: "INFO"
-    volumes:
-      - ./models:/models:ro
-      - ./logs:/logs
-    restart: unless-stopped
-    depends_on:
-      - prometheus
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-# ============================================================================
-# Usage Instructions
-# ============================================================================
-# 1. Start all services:
-#    docker-compose up -d
-#
-# 2. Access services:
-#    - Prometheus: http://localhost:9090
-#    - Alertmanager: http://localhost:9093
-#    - Grafana: http://localhost:3000 (admin/changeme)
-#    - Fraud API: http://localhost:8000
-#    - PushGateway: http://localhost:9091
-#
-# 3. View logs:
-#    docker-compose logs -f prometheus
-#    docker-compose logs -f fraud-api
-#
-# 4. Shut down:
-#    docker-compose down -v  # -v removes volumes
-#
-# 5. Update GRAFANA_PASSWORD:
-#    GRAFANA_PASSWORD=<newpass> docker-compose up -d

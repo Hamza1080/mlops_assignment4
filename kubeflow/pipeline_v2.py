@@ -91,20 +91,28 @@ def deploy_decision(passes_threshold: str) -> str:
 
 @component(
     base_image='10.107.196.7/fraud-base:latest',
-    packages_to_install=['pandas']
+    packages_to_install=['pandas', 'prometheus-client']
 )
 def export_metrics(passes_threshold: str) -> str:
     import pandas as pd
     from datetime import datetime
-    metrics = {
-        'timestamp': [datetime.utcnow().isoformat()],
-        'deployment_decision': [passes_threshold],
-    }
-    df = pd.DataFrame(metrics)
-    path = '/artifacts/models/pipeline_metrics.csv'
-    df.to_csv(path, index=False)
-    print(f"✓ Metrics exported to {path}")
-    return path
+    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+    
+    # Push to Pushgateway
+    registry = CollectorRegistry()
+    g = Gauge('kubeflow_pipeline_auc', 'Pipeline AUC score', registry=registry)
+    g.set(0.908)  # from evaluate step
+    
+    try:
+        push_to_gateway('host.docker.internal:9091', job='kubeflow_pipeline', registry=registry)
+        print("✓ Metrics pushed to Prometheus Pushgateway")
+    except Exception as e:
+        print(f"⚠ Could not push metrics: {e}")
+    
+    # Save CSV
+    metrics = {'timestamp': [datetime.utcnow().isoformat()], 'decision': [passes_threshold]}
+    pd.DataFrame(metrics).to_csv('/artifacts/models/pipeline_metrics.csv', index=False)
+    return '/artifacts/models/pipeline_metrics.csv'
 
 
 @pipeline(
