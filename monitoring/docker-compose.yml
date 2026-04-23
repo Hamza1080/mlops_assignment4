@@ -153,14 +153,16 @@ services:
     security_opt:
       - "apparmor:unconfined"
     privileged: true
-    capabilities:
+    cap_add:
       - SYS_ADMIN
 
   # ============================================================================
   # Fraud Detection API (with Prometheus metrics endpoint)
   # ============================================================================
   fraud-api:
-    image: fraud-api:latest
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.api
     container_name: fraud-api
     hostname: fraud-api
     networks:

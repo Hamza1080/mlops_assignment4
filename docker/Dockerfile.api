@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 # Copy application
 COPY src/ /app/src/
-COPY models/ /app/models/
+COPY model/ /app/models/
 
 ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO

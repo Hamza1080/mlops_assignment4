@@ -525,15 +525,17 @@ async def batch_predict(request: BatchPredictionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+
 @app.get("/metrics")
 async def metrics():
-    """
-    Prometheus metrics endpoint.
-    
-    Returns:
-        Prometheus-formatted metrics for all tracked counters/gauges/histograms
-    """
-    return generate_latest(registry).decode('utf-8')
+    return Response(
+        content=generate_latest(registry),
+        media_type=CONTENT_TYPE_LATEST
+    )
+
 
 
 @app.get("/model/info")

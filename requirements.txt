@@ -12,3 +12,6 @@ kfp==1.8.22
 flake8
 pytest
 scipy
+xgboost
+scikit-learn
+joblib
