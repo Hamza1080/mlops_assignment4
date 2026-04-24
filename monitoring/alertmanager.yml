@@ -21,6 +21,10 @@ receivers:
     webhook_configs:
       - url: 'https://api.github.com/repos/Hamza1080/mlops_assignment4/dispatches'
         send_resolved: false
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: 'YOUR_PAT_TOKEN_HERE'
 
 inhibit_rules:
   - source_match:
@@ -28,3 +32,5 @@ inhibit_rules:
     target_match:
       severity: warning
     equal: ['alertname']
+
+    

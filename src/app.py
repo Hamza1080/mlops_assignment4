@@ -9,17 +9,21 @@ import os
 import json
 import logging
 import time
-from typing import List, Dict, Optional
+from typing import List, Optional
 from datetime import datetime
-from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CollectorRegistry
+from prometheus_client import (
+    Counter, Histogram, Gauge,
+    generate_latest, CONTENT_TYPE_LATEST,
+    CollectorRegistry
+)
 
 # ============================================================================
 # Configuration
@@ -33,7 +37,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 NAMESPACE = os.getenv("PROMETHEUS_NAMESPACE", "fraud")
 
 # ============================================================================
-# Logging Setup
+# Logging
 # ============================================================================
 
 logging.basicConfig(
@@ -48,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 registry = CollectorRegistry()
 
-# API metrics
+# --- API metrics ---
 api_requests_total = Counter(
     f'{NAMESPACE}_api_requests_total',
     'Total number of API requests',
@@ -70,7 +74,7 @@ api_errors_total = Counter(
     registry=registry
 )
 
-# Model metrics
+# --- Model prediction metrics ---
 model_predictions_total = Counter(
     f'{NAMESPACE}_model_predictions_total',
     'Total number of predictions made',
@@ -98,7 +102,6 @@ model_inference_time_seconds = Histogram(
     registry=registry
 )
 
-# Batch prediction metrics
 batch_size_histogram = Histogram(
     f'{NAMESPACE}_batch_size',
     'Batch prediction size',
@@ -106,7 +109,6 @@ batch_size_histogram = Histogram(
     registry=registry
 )
 
-# Data quality metrics
 input_validation_errors_total = Counter(
     f'{NAMESPACE}_input_validation_errors_total',
     'Number of input validation errors',
@@ -114,89 +116,114 @@ input_validation_errors_total = Counter(
     registry=registry
 )
 
+# --- Model performance gauges (needed by alert_rules.yaml) ---
+model_recall = Gauge(
+    f'{NAMESPACE}_model_recall',
+    'Current model recall score',
+    registry=registry
+)
+
+model_auc_roc = Gauge(
+    f'{NAMESPACE}_model_auc_roc',
+    'Current model AUC-ROC score',
+    registry=registry
+)
+
+model_false_positive_rate = Gauge(
+    f'{NAMESPACE}_model_false_positive_rate',
+    'Current false positive rate',
+    registry=registry
+)
+
+# --- Data quality gauges (needed by alert_rules.yaml) ---
+data_psi = Gauge(
+    f'{NAMESPACE}_data_psi',
+    'Population Stability Index for drift detection',
+    registry=registry
+)
+
+data_missing_percentage = Gauge(
+    f'{NAMESPACE}_data_missing_percentage',
+    'Percentage of missing values in input data',
+    registry=registry
+)
+
+data_feature_shift_max = Gauge(
+    f'{NAMESPACE}_data_feature_shift_max',
+    'Maximum feature distribution shift',
+    registry=registry
+)
+
+# --- Pipeline metrics (needed by alert_rules.yaml) ---
+pipeline_duration_seconds = Gauge(
+    f'{NAMESPACE}_pipeline_duration_seconds',
+    'Last pipeline execution duration in seconds',
+    registry=registry
+)
+
+pipeline_failures_total = Counter(
+    f'{NAMESPACE}_pipeline_failures_total',
+    'Total pipeline failures',
+    registry=registry
+)
+
+retraining_triggered_total = Counter(
+    f'{NAMESPACE}_retraining_triggered_total',
+    'Total retraining triggers',
+    ['trigger_reason'],
+    registry=registry
+)
+
+# Set initial healthy values so alerts don't fire immediately
+model_recall.set(0.88)
+model_auc_roc.set(0.908)
+model_false_positive_rate.set(0.05)
+data_psi.set(0.05)
+data_missing_percentage.set(0.01)
+data_feature_shift_max.set(0.08)
+pipeline_duration_seconds.set(0)
+
 # ============================================================================
 # Data Models
 # ============================================================================
 
 class PredictionRequest(BaseModel):
-    """Single transaction for fraud detection."""
-    features: List[float] = Field(
-        ...,
-        description="Preprocessed feature vector (530 dimensions)"
-    )
-    transaction_id: Optional[str] = Field(
-        default=None,
-        description="Unique transaction identifier for logging"
-    )
-    
+    features: List[float] = Field(..., description="Preprocessed feature vector")
+    transaction_id: Optional[str] = Field(default=None)
+
     class Config:
         schema_extra = {
             "example": {
                 "transaction_id": "TX_12345",
-                "features": [0.5, -1.2, 0.8] + [0.0] * 527  # 530 dims
+                "features": [0.5, -1.2, 0.8] + [0.0] * 47
             }
         }
 
 
 class BatchPredictionRequest(BaseModel):
-    """Batch of transactions for fraud detection."""
-    predictions: List[PredictionRequest] = Field(
-        ...,
-        max_items=1000,
-        description="Up to 1000 transactions per batch"
-    )
+    predictions: List[PredictionRequest] = Field(..., max_items=1000)
 
 
 class PredictionResponse(BaseModel):
-    """Response for a single prediction."""
     transaction_id: Optional[str]
     is_fraud: bool
-    fraud_probability: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Predicted fraud probability (0-1)"
-    )
-    confidence: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Model confidence in prediction"
-    )
-    decision_threshold: float = Field(
-        default=0.5,
-        description="Threshold used for fraud classification"
-    )
-    inference_time_ms: float = Field(
-        ...,
-        description="Inference time in milliseconds"
-    )
-    model_version: str = Field(
-        default="1.0",
-        description="Model version that generated prediction"
-    )
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="UTC timestamp of prediction"
-    )
+    fraud_probability: float = Field(..., ge=0.0, le=1.0)
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    decision_threshold: float = Field(default=0.5)
+    inference_time_ms: float
+    model_version: str = Field(default="1.0")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
 class BatchPredictionResponse(BaseModel):
-    """Response for batch predictions."""
     predictions: List[PredictionResponse]
     batch_size: int
     total_fraud_count: int
-    fraud_rate: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Percentage of transactions flagged as fraud"
-    )
+    fraud_rate: float = Field(..., ge=0.0, le=1.0)
     processing_time_ms: float
 
 
 class HealthResponse(BaseModel):
-    """Health check response."""
     status: str
     model_loaded: bool
     model_version: str
@@ -204,13 +231,21 @@ class HealthResponse(BaseModel):
     timestamp: datetime
 
 
+class TestMetricsRequest(BaseModel):
+    """For testing alert firing — set metric values manually."""
+    recall: float = Field(default=0.88, ge=0.0, le=1.0)
+    auc: float = Field(default=0.908, ge=0.0, le=1.0)
+    psi: float = Field(default=0.05, ge=0.0)
+    false_positive_rate: float = Field(default=0.05, ge=0.0, le=1.0)
+    missing_percentage: float = Field(default=0.01, ge=0.0, le=1.0)
+    feature_shift_max: float = Field(default=0.08, ge=0.0)
+
+
 # ============================================================================
-# Model Loading
+# Model Manager
 # ============================================================================
 
 class ModelManager:
-    """Manages model and preprocessing artifacts."""
-    
     def __init__(self):
         self.model = None
         self.scaler = None
@@ -218,105 +253,72 @@ class ModelManager:
         self.threshold = 0.5
         self.model_version = "1.0"
         self.load_artifacts()
-    
+
     def load_artifacts(self):
-        """Load model, scaler, and metadata."""
         try:
-            # Load model
             if os.path.exists(MODEL_PATH):
                 self.model = joblib.load(MODEL_PATH)
                 logger.info(f"✓ Model loaded from {MODEL_PATH}")
             else:
                 logger.error(f"✗ Model not found at {MODEL_PATH}")
                 raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
-            
-            # Load scaler
+
             if os.path.exists(SCALER_PATH):
                 self.scaler = joblib.load(SCALER_PATH)
                 logger.info(f"✓ Scaler loaded from {SCALER_PATH}")
             else:
                 logger.warning(f"Scaler not found at {SCALER_PATH}")
-            
-            # Load metadata
+
             if os.path.exists(METADATA_PATH):
                 with open(METADATA_PATH, 'r') as f:
                     self.metadata = json.load(f)
                 logger.info(f"✓ Metadata loaded from {METADATA_PATH}")
-            else:
-                logger.warning(f"Metadata not found at {METADATA_PATH}")
-            
-            # Load optimal threshold
+
             if os.path.exists(THRESHOLD_PATH):
                 with open(THRESHOLD_PATH, 'r') as f:
                     threshold_data = json.load(f)
                     self.threshold = threshold_data.get('optimal_threshold', 0.5)
-                logger.info(f"✓ Optimal threshold loaded: {self.threshold}")
-            else:
-                logger.warning(f"Threshold not found. Using default: {self.threshold}")
-        
+                logger.info(f"✓ Threshold loaded: {self.threshold}")
+
         except Exception as e:
             logger.error(f"✗ Failed to load artifacts: {e}")
             raise
-    
+
     def preprocess_features(self, features: List[float]) -> np.ndarray:
-        """Validate and preprocess features."""
         features_array = np.array(features, dtype=np.float32).reshape(1, -1)
-        
-        # Validate dimensions
         if self.metadata:
-            expected_dim = self.metadata.get('n_features', 530)
+            expected_dim = self.metadata.get('n_features', features_array.shape[1])
             if features_array.shape[1] != expected_dim:
                 raise ValueError(
                     f"Feature dimension mismatch. Expected {expected_dim}, "
                     f"got {features_array.shape[1]}"
                 )
-        
-        # Apply scaler if available
         if self.scaler:
             try:
                 features_array = self.scaler.transform(features_array)
             except Exception as e:
                 logger.warning(f"Scaler transformation failed: {e}")
-        
         return features_array
-    
-    def predict(self, features: np.ndarray) -> tuple[float, float]:
-        """
-        Make prediction and return fraud probability and confidence.
-        
-        Returns:
-            (fraud_probability, confidence)
-        """
+
+    def predict(self, features: np.ndarray):
         start_time = time.time()
-        
-        try:
-            # Get probability prediction
-            fraud_probability = self.model.predict_proba(features)[0, 1]
-            
-            # Calculate confidence as max(prob, 1-prob)
-            confidence = max(fraud_probability, 1 - fraud_probability)
-            
-            inference_time = (time.time() - start_time) * 1000
-            model_inference_time_seconds.labels(model='xgboost').observe(inference_time / 1000)
-            
-            return fraud_probability, confidence, inference_time
-        
-        except Exception as e:
-            logger.error(f"Prediction failed: {e}")
-            raise
+        fraud_probability = self.model.predict_proba(features)[0, 1]
+        confidence = max(fraud_probability, 1 - fraud_probability)
+        inference_time = (time.time() - start_time) * 1000
+        model_inference_time_seconds.labels(model='xgboost').observe(inference_time / 1000)
+        return fraud_probability, confidence, inference_time
 
 
 # ============================================================================
-# FastAPI Application
+# FastAPI App
 # ============================================================================
 
 app = FastAPI(
     title="Fraud Detection API",
-    description="Real-time credit card fraud detection with explainability",
+    description="Real-time fraud detection with Prometheus monitoring",
     version="1.0"
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -325,29 +327,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load model on startup
 model_manager = None
+
 
 @app.on_event("startup")
 async def startup():
-    """Initialize model manager on startup."""
     global model_manager
     try:
         model_manager = ModelManager()
-        logger.info("✓ Model manager initialized successfully")
+        logger.info("✓ Model manager initialized")
     except Exception as e:
         logger.error(f"✗ Failed to initialize model manager: {e}")
         raise
 
 
+# ============================================================================
+# Endpoints
+# ============================================================================
+
+@app.get("/")
+async def root():
+    return {
+        "message": "Fraud Detection API",
+        "docs": "/docs",
+        "health": "/health",
+        "metrics": "/metrics"
+    }
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """
-    Health check endpoint.
-    
-    Returns:
-        HealthResponse with service status
-    """
     return HealthResponse(
         status="healthy" if model_manager else "unhealthy",
         model_loaded=model_manager is not None and model_manager.model is not None,
@@ -357,66 +366,52 @@ async def health_check():
     )
 
 
+@app.get("/metrics")
+async def metrics():
+    return Response(
+        content=generate_latest(registry),
+        media_type=CONTENT_TYPE_LATEST
+    )
+
+
+@app.get("/model/info")
+async def model_info():
+    return {
+        "model_version": model_manager.model_version,
+        "model_type": type(model_manager.model).__name__,
+        "threshold": model_manager.threshold,
+        "scaler_type": type(model_manager.scaler).__name__ if model_manager.scaler else None,
+        "metadata": model_manager.metadata,
+    }
+
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
-    """
-    Single transaction fraud prediction.
-    
-    Args:
-        request: PredictionRequest with transaction features
-    
-    Returns:
-        PredictionResponse with fraud prediction and confidence
-    
-    Raises:
-        HTTPException: For validation or inference errors
-    """
     request_start = time.time()
-    
     try:
-        api_requests_total.labels(
-            endpoint="/predict",
-            method="POST",
-            status="started"
-        ).inc()
-        
-        # Validate input
-        if not request.features or len(request.features) == 0:
+        api_requests_total.labels(endpoint="/predict", method="POST", status="started").inc()
+
+        if not request.features:
             input_validation_errors_total.labels(reason="empty_features").inc()
-            raise HTTPException(
-                status_code=400,
-                detail="Feature vector cannot be empty"
-            )
-        
+            raise HTTPException(status_code=400, detail="Feature vector cannot be empty")
+
         if any(np.isnan(x) or np.isinf(x) for x in request.features):
             input_validation_errors_total.labels(reason="invalid_values").inc()
-            raise HTTPException(
-                status_code=400,
-                detail="Feature vector contains NaN or Inf values"
-            )
-        
-        # Preprocess features
+            raise HTTPException(status_code=400, detail="Feature vector contains NaN or Inf")
+
         preprocessed = model_manager.preprocess_features(request.features)
-        
-        # Generate prediction
         fraud_prob, confidence, inference_time = model_manager.predict(preprocessed)
         is_fraud = fraud_prob >= model_manager.threshold
-        
-        # Update metrics
+
         model_predictions_total.labels(model='xgboost').inc()
         if is_fraud:
             model_fraud_detections_total.labels(model='xgboost').inc()
         model_prediction_confidence.set(confidence)
-        
-        # Total API time
+
         total_time = (time.time() - request_start) * 1000
         api_request_duration_seconds.labels(endpoint="/predict").observe(total_time / 1000)
-        api_requests_total.labels(
-            endpoint="/predict",
-            method="POST",
-            status="success"
-        ).inc()
-        
+        api_requests_total.labels(endpoint="/predict", method="POST", status="success").inc()
+
         return PredictionResponse(
             transaction_id=request.transaction_id,
             is_fraud=is_fraud,
@@ -426,86 +421,54 @@ async def predict(request: PredictionRequest):
             inference_time_ms=inference_time,
             model_version=model_manager.model_version
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Prediction error: {e}")
         api_errors_total.labels(endpoint="/predict", error_type=type(e).__name__).inc()
-        api_requests_total.labels(
-            endpoint="/predict",
-            method="POST",
-            status="error"
-        ).inc()
+        api_requests_total.labels(endpoint="/predict", method="POST", status="error").inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/batch_predict", response_model=BatchPredictionResponse)
 async def batch_predict(request: BatchPredictionRequest):
-    """
-    Batch transaction fraud prediction.
-    
-    Args:
-        request: BatchPredictionRequest with up to 1000 transactions
-    
-    Returns:
-        BatchPredictionResponse with fraud predictions for all transactions
-    """
     request_start = time.time()
     batch_size = len(request.predictions)
-    
     try:
-        api_requests_total.labels(
-            endpoint="/batch_predict",
-            method="POST",
-            status="started"
-        ).inc()
-        
+        api_requests_total.labels(endpoint="/batch_predict", method="POST", status="started").inc()
         batch_size_histogram.observe(batch_size)
-        
+
         predictions = []
         fraud_count = 0
-        
+
         for pred_req in request.predictions:
             try:
-                # Preprocess
                 preprocessed = model_manager.preprocess_features(pred_req.features)
-                
-                # Predict
                 fraud_prob, confidence, inference_time = model_manager.predict(preprocessed)
                 is_fraud = fraud_prob >= model_manager.threshold
-                
                 if is_fraud:
                     fraud_count += 1
-                
-                predictions.append(
-                    PredictionResponse(
-                        transaction_id=pred_req.transaction_id,
-                        is_fraud=is_fraud,
-                        fraud_probability=float(fraud_prob),
-                        confidence=float(confidence),
-                        decision_threshold=model_manager.threshold,
-                        inference_time_ms=inference_time,
-                        model_version=model_manager.model_version
-                    )
-                )
-            
+                predictions.append(PredictionResponse(
+                    transaction_id=pred_req.transaction_id,
+                    is_fraud=is_fraud,
+                    fraud_probability=float(fraud_prob),
+                    confidence=float(confidence),
+                    decision_threshold=model_manager.threshold,
+                    inference_time_ms=inference_time,
+                    model_version=model_manager.model_version
+                ))
             except Exception as e:
-                logger.warning(f"Skipping prediction for {pred_req.transaction_id}: {e}")
+                logger.warning(f"Skipping {pred_req.transaction_id}: {e}")
                 continue
-        
-        # Update metrics
+
         model_predictions_total.labels(model='xgboost').inc(len(predictions))
         model_fraud_detections_total.labels(model='xgboost').inc(fraud_count)
-        
+
         total_time = (time.time() - request_start) * 1000
         api_request_duration_seconds.labels(endpoint="/batch_predict").observe(total_time / 1000)
-        api_requests_total.labels(
-            endpoint="/batch_predict",
-            method="POST",
-            status="success"
-        ).inc()
-        
+        api_requests_total.labels(endpoint="/batch_predict", method="POST", status="success").inc()
+
         return BatchPredictionResponse(
             predictions=predictions,
             batch_size=batch_size,
@@ -513,53 +476,54 @@ async def batch_predict(request: BatchPredictionRequest):
             fraud_rate=fraud_count / batch_size if batch_size > 0 else 0.0,
             processing_time_ms=total_time
         )
-    
+
     except Exception as e:
         logger.error(f"Batch prediction error: {e}")
         api_errors_total.labels(endpoint="/batch_predict", error_type=type(e).__name__).inc()
-        api_requests_total.labels(
-            endpoint="/batch_predict",
-            method="POST",
-            status="error"
-        ).inc()
+        api_requests_total.labels(endpoint="/batch_predict", method="POST", status="error").inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============================================================================
+# Test Endpoint — manually set metrics to trigger/clear alerts
+# ============================================================================
 
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-from fastapi.responses import Response
+@app.post("/test/set_metrics")
+async def set_test_metrics(request: TestMetricsRequest):
+    """
+    Manually set Prometheus gauge values to test alert firing.
+    
+    To trigger alerts:  recall=0.50, auc=0.75, psi=0.30
+    To clear alerts:    recall=0.88, auc=0.908, psi=0.05
+    """
+    model_recall.set(request.recall)
+    model_auc_roc.set(request.auc)
+    model_false_positive_rate.set(request.false_positive_rate)
+    data_psi.set(request.psi)
+    data_missing_percentage.set(request.missing_percentage)
+    data_feature_shift_max.set(request.feature_shift_max)
 
-@app.get("/metrics")
-async def metrics():
-    return Response(
-        content=generate_latest(registry),
-        media_type=CONTENT_TYPE_LATEST
-    )
+    alerts_firing = []
+    if request.recall < 0.70:
+        alerts_firing.append("LowModelRecall")
+    if request.auc < 0.85:
+        alerts_firing.append("LowModelAUC")
+    if request.psi > 0.20:
+        alerts_firing.append("DataDriftDetected")
+    if request.false_positive_rate > 0.15:
+        alerts_firing.append("HighFalsePositiveRate")
 
-
-
-@app.get("/model/info")
-async def model_info():
-    """Get model and configuration information."""
     return {
-        "model_version": model_manager.model_version,
-        "model_type": type(model_manager.model).__name__,
-        "threshold": model_manager.threshold,
-        "scaler_type": type(model_manager.scaler).__name__ if model_manager.scaler else None,
-        "metadata": model_manager.metadata,
-        "model_path": MODEL_PATH,
-        "scaler_path": SCALER_PATH
-    }
-
-
-@app.get("/")
-async def root():
-    """API documentation redirect."""
-    return {
-        "message": "Fraud Detection API",
-        "docs": "/docs",
-        "health": "/health",
-        "metrics": "/metrics"
+        "metrics_set": {
+            "recall": request.recall,
+            "auc": request.auc,
+            "psi": request.psi,
+            "false_positive_rate": request.false_positive_rate,
+            "missing_percentage": request.missing_percentage,
+            "feature_shift_max": request.feature_shift_max,
+        },
+        "expected_alerts": alerts_firing,
+        "note": f"Wait 30s then check http://localhost:9090/alerts"
     }
 
 
@@ -569,7 +533,6 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    
     uvicorn.run(
         app,
         host="0.0.0.0",

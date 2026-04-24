@@ -228,9 +228,8 @@ jobs:
         if: steps.strategy.outputs.strategy == 'retrain'
         run: |
           echo "High drift detected. Triggering retraining pipeline..."
-          # Compile and deploy new pipeline with latest data
-          python kubeflow/compile_pipeline.py
-          kubectl apply -f kubeflow/deployment.yaml
+          pip install mlflow xgboost lightgbm scikit-learn pandas numpy joblib
+          python mlflow_pipeline.py
       
       - name: Send notification to monitoring system
         run: |
