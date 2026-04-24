@@ -24,7 +24,7 @@ receivers:
         http_config:
           authorization:
             type: Bearer
-            credentials: 'YOUR_PAT_TOKEN_HERE'
+            credentials: 'GITHUB_PAT_PLACEHOLDER'
 
 inhibit_rules:
   - source_match:
